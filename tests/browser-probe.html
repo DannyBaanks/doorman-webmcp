@@ -1,0 +1,65 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Doorman WebMCP probe</title>
+<pre id="output">running</pre>
+<script src="../src/board.js"></script>
+<script src="../src/policy.js"></script>
+<script src="../src/ledger.js"></script>
+<script src="../src/doorman.js"></script>
+<script src="../src/tools.js"></script>
+<script>
+  (async function () {
+    var output = document.getElementById('output');
+    function report(value) { output.textContent = JSON.stringify(value, null, 2); }
+    function timed(promise, label) {
+      return Promise.race([promise, new Promise(function (_, reject) {
+        setTimeout(function () { reject(new Error(label + ' timed out')); }, 5000);
+      })]);
+    }
+    var phase = 'startup';
+    var toolchangeEvents = 0;
+    if (!document.modelContext) {
+      report({ status: 'EXTERNAL', reason: 'document.modelContext unavailable' });
+      return;
+    }
+    try {
+      window.Doorman.board.reset();
+      phase = 'registration';
+      document.modelContext.addEventListener('toolchange', function () { toolchangeEvents++; });
+      var runtime = await timed(window.Doorman.tools.initialise({ modelContext: document.modelContext }), 'registration');
+      phase = 'discovery';
+      var initial = await timed(document.modelContext.getTools(), 'discovery');
+      var names = initial.map(function (tool) { return tool.name; });
+      var addTool = initial.find(function (tool) { return tool.name === 'add_item'; });
+      phase = 'add';
+      var addResult = await timed(document.modelContext.executeTool(addTool, JSON.stringify({ text: 'browser probe item' })), 'add');
+      var addPayload = typeof addResult === 'string' ? JSON.parse(addResult) : addResult;
+      var added = addPayload.item || JSON.parse(addPayload.content[0].text).item;
+      var requestTool = initial.find(function (tool) { return tool.name === 'request_approval'; });
+      phase = 'approval request';
+      await timed(document.modelContext.executeTool(requestTool, JSON.stringify({ action: 'delete_item', target: added.id })), 'approval request');
+      await runtime.approveRequest(runtime.getApproval().id);
+      phase = 'dynamic discovery';
+      var afterApproval = await timed(document.modelContext.getTools(), 'discovery after approval');
+      var deleteTool = afterApproval.find(function (tool) { return tool.name === 'delete_item'; });
+      await timed(document.modelContext.executeTool(deleteTool, JSON.stringify({ id: added.id })), 'delete');
+      var afterUse = await timed(document.modelContext.getTools(), 'discovery after delete');
+      report({
+        status: 'PASS',
+        initialTools: names,
+        addResult: added.text,
+        deleteAfterApproval: afterApproval.some(function (tool) { return tool.name === 'delete_item'; }),
+        deleteAfterUse: afterUse.some(function (tool) { return tool.name === 'delete_item'; }),
+        receipts: runtime.doorman.receipts()
+      });
+    } catch (error) {
+      report({
+        status: error.message && error.message.indexOf('timed out') !== -1 ? 'EXTERNAL' : 'FAIL',
+        phase: phase,
+        toolchangeEvents: toolchangeEvents,
+        localTools: window.Doorman.toolsRuntime && window.Doorman.toolsRuntime.doorman.toolNames(),
+        error: error.message || String(error)
+      });
+    }
+  })();
+</script>

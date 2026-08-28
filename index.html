@@ -80,6 +80,22 @@
     border-left: 2px solid var(--line); padding-left: .7rem;
   }
 
+  .capability-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+  .capability-row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+  .capability-name { font-family: var(--mono); font-size: .82rem; }
+  .capability-status { font-family: var(--mono); font-size: .68rem; letter-spacing: .03em; }
+  .capability-status.available { color: var(--allow); }
+  .capability-status.unavailable { color: var(--deny); }
+  .approval { border: 1px solid var(--deny); border-radius: 7px; padding: .75rem; margin-top: .9rem; }
+  .approval-copy { margin: 0 0 .65rem; font-size: .88rem; }
+  .approval .btn { margin-right: .4rem; }
+  .receipt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+  .receipt { display: grid; grid-template-columns: 2.3rem 1fr auto; gap: .4rem .65rem; align-items: baseline; font-size: .8rem; }
+  .receipt-number, .receipt-tool, .receipt-execution { font-family: var(--mono); font-size: .72rem; }
+  .receipt-number, .receipt-execution, .receipt-reason { color: var(--muted); }
+  .receipt-decision.allowed { color: var(--allow); }
+  .receipt-decision.denied { color: var(--deny); }
+
   /* board */
   #board-form { display: flex; gap: .5rem; margin-bottom: .9rem; }
   #board-input {
@@ -182,12 +198,14 @@
     <div class="stack">
       <section class="panel" id="capabilities">
         <h2>Capabilities</h2>
-        <p class="pending">What exists, and what is currently granted.<br>Arrives in slice 3.</p>
+        <p class="pending">What exists, and what is currently granted.</p>
       </section>
+
+      <section class="panel approval" id="approval" hidden aria-live="polite"></section>
 
       <section class="panel" id="ledger">
         <h2>Activity</h2>
-        <p class="pending">Requested / allowed / denied / executed, with receipts.<br>Arrives in slice 2.</p>
+        <ol class="receipt-list" id="activity-list"></ol>
       </section>
     </div>
 
@@ -209,6 +227,10 @@
 </div>
 
 <script src="src/board.js"></script>
+<script src="src/policy.js"></script>
+<script src="src/ledger.js"></script>
+<script src="src/doorman.js"></script>
+<script src="src/tools.js"></script>
 <script src="src/ui.js"></script>
 <script>
   // Honest environment detection. The page never pretends an agent surface exists.
@@ -231,6 +253,7 @@
   })();
 
   window.Doorman.ui.init();
+  window.Doorman.tools.initialise({ modelContext: document.modelContext || null });
 </script>
 </body>
 </html>

@@ -80,7 +80,7 @@
     return null;
   }
 
-  function add(text, author) {
+  function add(text, author, metadata) {
     var clean = String(text == null ? '' : text).trim();
     if (!clean) throw new Error('An item needs some text.');
     if (clean.length > 140) throw new Error('Keep it under 140 characters.');
@@ -88,6 +88,7 @@
       id: newId(),
       text: clean,
       author: author || AUTHORS.HUMAN,
+      sessionId: metadata && metadata.sessionId ? String(metadata.sessionId) : null,
       createdAt: new Date().toISOString()
     };
     items.push(item);

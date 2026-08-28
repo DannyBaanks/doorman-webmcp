@@ -161,10 +161,91 @@
 
   function onReset() {
     board.reset();
+    if (global.Doorman.toolsRuntime && global.Doorman.toolsRuntime.resetDemo) {
+      global.Doorman.toolsRuntime.resetDemo();
+    }
     editingId = null;
     pendingDelete = null;
     flash('Board reset to its sample items.');
     render();
+  }
+
+  function setCapabilities(names, webmcpAvailable) {
+    var panel = document.getElementById('capabilities');
+    if (!panel) return;
+    var heading = panel.querySelector('h2');
+    var oldCount = heading && heading.querySelector('.count');
+    if (oldCount) oldCount.remove();
+    var old = panel.querySelector('.capability-list');
+    if (old) old.remove();
+    var list = el('ul', 'capability-list');
+    names.concat(['delete_item']).forEach(function (name) {
+      var available = names.indexOf(name) !== -1;
+      var row = el('li', 'capability-row');
+      row.appendChild(el('code', 'capability-name', name));
+      row.appendChild(el('span', available ? 'capability-status available' : 'capability-status unavailable',
+        available ? (webmcpAvailable ? 'AVAILABLE' : 'LOCAL ONLY') : 'UNAVAILABLE'));
+      list.appendChild(row);
+    });
+    panel.appendChild(list);
+    if (heading) heading.appendChild(el('span', 'count', names.length + ' registered'));
+  }
+
+  function setActivity(receipts) {
+    var list = document.getElementById('activity-list');
+    if (!list) return;
+    list.textContent = '';
+    if (!receipts.length) {
+      list.appendChild(el('li', 'empty', 'No tool activity yet.'));
+      return;
+    }
+    receipts.forEach(function (receipt) {
+      var row = el('li', 'receipt');
+      row.appendChild(el('span', 'receipt-number', '#' + receipt.number));
+      row.appendChild(el('code', 'receipt-tool', receipt.tool));
+      row.appendChild(el('strong', 'receipt-decision ' + receipt.decision, receipt.decision.toUpperCase()));
+      row.appendChild(el('span', 'receipt-execution', receipt.execution));
+      if (receipt.reason) row.appendChild(el('span', 'receipt-reason', receipt.reason));
+      list.appendChild(row);
+    });
+  }
+
+  function setApproval(approval) {
+    var panel = document.getElementById('approval');
+    if (!panel) return;
+    panel.textContent = '';
+    if (!approval) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    var item = global.Doorman.board && global.Doorman.board.get(approval.target);
+    var label = item ? item.text : approval.target;
+    panel.appendChild(el('p', 'approval-copy', approval.status === 'pending'
+      ? 'Agent requests permission to delete: "' + label + '"'
+      : 'Delete request: "' + label + '" — ' + approval.status.toUpperCase()));
+    if (approval.status !== 'pending') return;
+    var approve = el('button', 'btn btn-primary', 'Approve once');
+    approve.type = 'button';
+    approve.dataset.approvalAction = 'approve';
+    var deny = el('button', 'btn btn-danger', 'Deny');
+    deny.type = 'button';
+    deny.dataset.approvalAction = 'deny';
+    panel.appendChild(approve);
+    panel.appendChild(deny);
+  }
+
+  function onApprovalClick(event) {
+    var button = event.target.closest('button[data-approval-action]');
+    var runtime = global.Doorman.toolsRuntime;
+    if (!button || !runtime || !runtime.getApproval) return;
+    var current = runtime.getApproval();
+    if (!current) return;
+    var action = button.dataset.approvalAction;
+    var result = action === 'approve'
+      ? runtime.approveRequest(current.id)
+      : runtime.denyRequest(current.id);
+    if (result && typeof result.then === 'function') result.catch(function (error) { console.error(error); });
   }
 
   function init() {
@@ -179,8 +260,16 @@
     els.form.addEventListener('submit', onSubmit);
     els.list.addEventListener('click', onListClick);
     els.reset.addEventListener('click', onReset);
+    var approval = document.getElementById('approval');
+    if (approval) approval.addEventListener('click', onApprovalClick);
     render();
   }
 
-  global.Doorman.ui = { init: init, render: render };
+  global.Doorman.ui = {
+    init: init,
+    render: render,
+    setCapabilities: setCapabilities,
+    setActivity: setActivity,
+    setApproval: setApproval
+  };
 })(window, document);
