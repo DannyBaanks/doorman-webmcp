@@ -1,0 +1,7 @@
+{
+  "case": "delete_item before human approval",
+  "surface": "unregistered",
+  "local_tool_names_exclude": "delete_item",
+  "status": "PASS in mock; real browser pending interactive verification",
+  "command": "node tests/doorman.test.js"
+}

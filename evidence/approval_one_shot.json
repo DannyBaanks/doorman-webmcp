@@ -1,0 +1,8 @@
+{
+  "case": "human approval and one-shot delete",
+  "wrong_target": "denied and approval retained",
+  "approved_target": "allowed and executed",
+  "after_execution": "delete_item removed by aborting its registration signal",
+  "receipt_execution_states": ["executed", "not_executed", "execution_error"],
+  "status": "PASS in mock; real browser dynamic discovery external"
+}

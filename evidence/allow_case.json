@@ -1,0 +1,9 @@
+{
+  "case": "add_item",
+  "path": "mock and shared WebMCP callback",
+  "decision": "allowed",
+  "execution": "executed",
+  "author": "agent",
+  "status": "PASS",
+  "command": "node tests/doorman.test.js"
+}

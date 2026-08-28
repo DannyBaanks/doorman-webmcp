@@ -1,0 +1,9 @@
+{
+  "date": "2026-08-28",
+  "browser": "Google Chrome 139.0.7258.67 headless=new",
+  "webmcp": "document.modelContext detected with --enable-features=WebMCP",
+  "url": "http://127.0.0.1:8765",
+  "registration": "initial registration resolved and toolchange events observed",
+  "real_dynamic_cycle": "EXTERNAL",
+  "reason": "Chrome headless probe failed during dynamic getTools after approval with a transient operation error"
+}

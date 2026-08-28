@@ -1,0 +1,8 @@
+{
+  "case": "update item not owned by current agent session",
+  "decision": "denied",
+  "execution": "not_executed",
+  "reason": "not_owned_by_agent_session",
+  "status": "PASS",
+  "command": "node tests/doorman.test.js"
+}

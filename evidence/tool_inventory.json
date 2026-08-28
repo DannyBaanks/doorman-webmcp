@@ -1,0 +1,8 @@
+{
+  "local_always_on": ["list_items", "add_item", "update_item", "request_approval"],
+  "initially_unregistered": ["delete_item"],
+  "dynamic": ["delete_item"],
+  "source": "src/tools.js",
+  "local_mock_status": "PASS",
+  "real_browser_status": "PARTIAL_EXTERNAL"
+}
