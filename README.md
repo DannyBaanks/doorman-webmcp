@@ -34,7 +34,7 @@ human, not evidence for a third party. There is no cryptography here and no clai
 Early. Built for [The WebMCP Challenge](https://webmcp.devpost.com/).
 
 - [x] Slice 0 — skeleton, license, honest environment detection
-- [ ] Slice 1 — the board, usable by a human with no agent at all
+- [x] Slice 1 — the board, usable by a human with no agent at all
 - [ ] Slice 2 — the Doorman wrapper: policy, decisions, receipts
 - [ ] Slice 3 — the always-available tools
 - [ ] Slice 4 — escalation, human grants, `toolchange`, one-shot expiry
