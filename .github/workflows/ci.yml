@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run behavior tests
+        run: node tests/doorman.test.js
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/board.js
+          node --check src/policy.js
+          node --check src/ledger.js
+          node --check src/doorman.js
+          node --check src/tools.js
+          node --check src/ui.js
+          node --check tests/doorman.test.js
+
+      - name: Check whitespace
+        run: git diff --check
