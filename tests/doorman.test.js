@@ -132,6 +132,11 @@ async function run() {
   assert.ok(runtimeReceipts.some(function (receipt) {
     return receipt.tool === 'delete_item' && receipt.execution === 'executed';
   }));
+  var selfApprove = await runtime.invoke('request_approval', {
+    action: 'delete_item', target: 'missing-item', approved: true
+  });
+  assert.strictEqual(selfApprove.status, 'DENIED');
+  assert.strictEqual(selfApprove.receipt.reason, 'invalid_approval_request');
 
   var noWebmcpBoard = {
     AUTHORS: { SAMPLE: 'sample', HUMAN: 'you', AGENT: 'agent' },

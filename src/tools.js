@@ -88,6 +88,8 @@
       return item && item.author === board.AUTHORS.AGENT && item.sessionId === currentSession.id;
     }
 
+    doorman.setReceiptListener(refresh);
+
     function registerDelete() {
       return doorman.registerTool(definitions.delete_item, function (args) {
         if (!approval || approval.status !== 'approved') {
@@ -151,7 +153,7 @@
           : global.Doorman.policy.deny('not_owned_by_agent_session');
       }),
       doorman.registerTool(definitions.request_approval, function (args) {
-        if (args.approved === true || args.action !== 'delete_item' || !args.target) {
+        if (args.approved === true || args.action !== 'delete_item' || !args.target || !board.get(args.target)) {
           return global.Doorman.policy.deny('invalid_approval_request');
         }
         return global.Doorman.policy.allow('approval_requested');

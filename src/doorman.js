@@ -12,10 +12,17 @@
     var context = options.modelContext || null;
     var ledger = options.ledger || global.Doorman.createLedger(options.storage || global.localStorage);
     var session = options.session || { id: 'session_' + Date.now().toString(36) };
+    var receiptListener = options.onReceipt || null;
     var tools = Object.create(null);
 
     function normaliseArgs(args) {
       return args == null ? {} : args;
+    }
+
+    function record(receipt) {
+      var result = ledger.record(receipt);
+      if (receiptListener) receiptListener(result);
+      return result;
     }
 
     function registerTool(descriptor, rule, registrationOptions) {
@@ -61,14 +68,14 @@
       var item = tools[name];
       var cleanArgs = normaliseArgs(args);
       if (!item) {
-        return Promise.resolve(ledger.record({
+        return Promise.resolve(record({
           tool: name, args: cleanArgs, decision: 'denied', execution: 'not_executed', reason: 'unknown_tool'
         })).then(function (receipt) { return { status: 'DENIED', receipt: receipt }; });
       }
 
       var decision = global.Doorman.policy.decide(item.rule, cleanArgs, session);
       if (decision.decision === 'denied') {
-        return Promise.resolve(ledger.record({
+        return Promise.resolve(record({
           tool: name, args: cleanArgs, decision: 'denied', execution: 'not_executed', reason: decision.reason
         })).then(function (receipt) { return { status: 'DENIED', receipt: receipt }; });
       }
@@ -76,13 +83,13 @@
       return Promise.resolve().then(function () {
         return item.original(cleanArgs, session, executionOptions || {});
       }).then(function (result) {
-        var receipt = ledger.record({
+        var receipt = record({
           tool: name, args: cleanArgs, decision: 'allowed', execution: 'executed',
           reason: decision.reason, result: result
         });
         return { status: 'ALLOWED', result: result, receipt: receipt };
       }).catch(function (error) {
-        var receipt = ledger.record({
+        var receipt = record({
           tool: name,
           args: cleanArgs,
           decision: 'allowed',
@@ -105,10 +112,13 @@
       return true;
     }
 
+    function setReceiptListener(listener) { receiptListener = listener; }
+
     return {
       registerTool: registerTool,
       invoke: invoke,
       unregisterTool: unregisterTool,
+      setReceiptListener: setReceiptListener,
       toolNames: toolNames,
       receipts: receipts,
       ledger: ledger,
