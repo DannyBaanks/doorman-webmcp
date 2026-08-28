@@ -66,6 +66,8 @@ list and add an item. Attempt an update on a human or sample item and show the d
 Request approval, approve once as the human, delete the approved item, and show the capability
 disappearing again. The prepared two-to-three-minute script is in `VIDEO_SCRIPT.md`.
 
+The release procedure is in `DEPLOYMENT.md`; the uncoached agent run is in `FRESH_AGENT_TEST.md`.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

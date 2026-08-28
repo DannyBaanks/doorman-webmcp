@@ -179,16 +179,21 @@
     var old = panel.querySelector('.capability-list');
     if (old) old.remove();
     var list = el('ul', 'capability-list');
-    names.concat(['delete_item']).forEach(function (name) {
+    var allNames = ['list_items', 'add_item', 'update_item', 'request_approval', 'delete_item'];
+    allNames.forEach(function (name) {
       var available = names.indexOf(name) !== -1;
       var row = el('li', 'capability-row');
       row.appendChild(el('code', 'capability-name', name));
-      row.appendChild(el('span', available ? 'capability-status available' : 'capability-status unavailable',
-        available ? (webmcpAvailable ? 'AVAILABLE' : 'LOCAL ONLY') : 'UNAVAILABLE'));
+      var authority = name === 'update_item' ? 'CONDITIONAL' : (name === 'delete_item' && available ? 'ONE SHOT' : (available ? 'ALLOWED' : 'NONE'));
+      var status = available ? (webmcpAvailable ? (name === 'delete_item' ? 'REGISTERED — ONE SHOT' : 'REGISTERED') : 'LOCAL ONLY') : 'UNREGISTERED';
+      var detail = el('span', 'capability-detail');
+      detail.appendChild(el('span', available ? 'capability-status available' : 'capability-status unavailable', status));
+      detail.appendChild(el('span', 'capability-authority', authority));
+      row.appendChild(detail);
       list.appendChild(row);
     });
     panel.appendChild(list);
-    if (heading) heading.appendChild(el('span', 'count', names.length + ' registered'));
+    if (heading) heading.appendChild(el('span', 'count', names.length + (webmcpAvailable ? ' registered' : ' local')));
   }
 
   function setActivity(receipts) {
@@ -206,6 +211,13 @@
       row.appendChild(el('strong', 'receipt-decision ' + receipt.decision, receipt.decision.toUpperCase()));
       row.appendChild(el('span', 'receipt-execution', receipt.execution));
       if (receipt.reason) row.appendChild(el('span', 'receipt-reason', receipt.reason));
+      if (receipt.args && Object.keys(receipt.args).length) {
+        row.appendChild(el('span', 'receipt-args', JSON.stringify(receipt.args)));
+      }
+      if (receipt.result) {
+        row.appendChild(el('span', 'receipt-result', typeof receipt.result === 'string'
+          ? receipt.result : JSON.stringify(receipt.result)));
+      }
       list.appendChild(row);
     });
   }
@@ -233,6 +245,16 @@
     deny.dataset.approvalAction = 'deny';
     panel.appendChild(approve);
     panel.appendChild(deny);
+  }
+
+  function setEnvironmentFailure(error) {
+    var env = document.getElementById('env');
+    var label = document.getElementById('env-label');
+    var detail = document.getElementById('env-detail');
+    if (!env || !label || !detail) return;
+    env.className = 'absent';
+    label.textContent = 'WebMCP registration failed';
+    detail.textContent = '— ' + (error && error.message ? error.message : 'the human board remains available.');
   }
 
   function onApprovalClick(event) {
@@ -270,6 +292,7 @@
     render: render,
     setCapabilities: setCapabilities,
     setActivity: setActivity,
-    setApproval: setApproval
+    setApproval: setApproval,
+    setEnvironmentFailure: setEnvironmentFailure
   };
 })(window, document);

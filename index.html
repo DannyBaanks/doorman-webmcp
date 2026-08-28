@@ -86,6 +86,8 @@
   .capability-status { font-family: var(--mono); font-size: .68rem; letter-spacing: .03em; }
   .capability-status.available { color: var(--allow); }
   .capability-status.unavailable { color: var(--deny); }
+  .capability-detail { display: flex; gap: .65rem; align-items: baseline; font-family: var(--mono); font-size: .68rem; }
+  .capability-authority { color: var(--muted); }
   .approval { border: 1px solid var(--deny); border-radius: 7px; padding: .75rem; margin-top: .9rem; }
   .approval-copy { margin: 0 0 .65rem; font-size: .88rem; }
   .approval .btn { margin-right: .4rem; }
@@ -93,6 +95,7 @@
   .receipt { display: grid; grid-template-columns: 2.3rem 1fr auto; gap: .4rem .65rem; align-items: baseline; font-size: .8rem; }
   .receipt-number, .receipt-tool, .receipt-execution { font-family: var(--mono); font-size: .72rem; }
   .receipt-number, .receipt-execution, .receipt-reason { color: var(--muted); }
+  .receipt-args, .receipt-result { grid-column: 2 / -1; color: var(--muted); font-family: var(--mono); font-size: .68rem; overflow-wrap: anywhere; }
   .receipt-decision.allowed { color: var(--allow); }
   .receipt-decision.denied { color: var(--deny); }
 
@@ -207,6 +210,17 @@
         <h2>Activity</h2>
         <ol class="receipt-list" id="activity-list"></ol>
       </section>
+
+      <section class="panel example-flow">
+        <h2>Example Flow</h2>
+        <p class="pending">Illustrative sequence, not live receipts.</p>
+        <ol class="example-list">
+          <li><code>add_item</code> <strong>ALLOWED</strong> <span>executed</span></li>
+          <li><code>update_item</code> <strong>DENIED</strong> <span>not owned by agent session</span></li>
+          <li><code>request_approval</code> <strong>PENDING</strong> <span>human decision</span></li>
+          <li><code>delete_item</code> <strong>ALLOWED once</strong> <span>then unregistered</span></li>
+        </ol>
+      </section>
     </div>
 
   </div>
@@ -253,7 +267,10 @@
   })();
 
   window.Doorman.ui.init();
-  window.Doorman.tools.initialise({ modelContext: document.modelContext || null });
+  window.Doorman.tools.initialise({ modelContext: document.modelContext || null }).catch(function (error) {
+    if (window.Doorman.ui.setEnvironmentFailure) window.Doorman.ui.setEnvironmentFailure(error);
+    if (window.Doorman.ui.setCapabilities) window.Doorman.ui.setCapabilities([], false);
+  });
 </script>
 </body>
 </html>

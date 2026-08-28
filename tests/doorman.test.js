@@ -156,9 +156,18 @@ async function run() {
   assert.ok(noWebmcpRegistrations.every(function (registration) { return registration.registered === false; }));
   assert.deepStrictEqual(noWebmcp.toolNames(), ['list_items', 'add_item', 'update_item', 'request_approval']);
 
+  var registrationFailure = global.Doorman.create({
+    ledger: { record: function (value) { return value; }, list: function () { return []; } },
+    modelContext: { registerTool: function () { throw new Error('tools permission denied'); } }
+  });
+  await assert.rejects(function () {
+    return registrationFailure.registerTool({ name: 'blocked', execute: function () {} });
+  }, /tools permission denied/);
+
   console.log('slice 3: 3 always-on tools and ownership policy passed');
   console.log('slice 4: human approval and one-shot delete passed');
   console.log('slice 5: no-WebMCP initialization path passed');
+  console.log('registration failures: surfaced as a handled rejection');
 }
 
 run().catch(function (error) {

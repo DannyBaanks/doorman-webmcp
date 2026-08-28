@@ -57,7 +57,9 @@
       if (context && typeof context.registerTool === 'function') {
         var optionsForRegistration = Object.assign({}, registrationOptions || {});
         if (controller) optionsForRegistration.signal = controller.signal;
-        return Promise.resolve(context.registerTool(wrapped, optionsForRegistration)).then(function () {
+        return Promise.resolve().then(function () {
+          return context.registerTool(wrapped, optionsForRegistration);
+        }).then(function () {
           return { registered: true, name: descriptor.name };
         });
       }
