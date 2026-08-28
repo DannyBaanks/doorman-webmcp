@@ -1,0 +1,3 @@
+# Normalise to LF in the repository. This project is developed on Windows and the
+# submission will be judged from a clean clone; CRLF churn is not welcome here.
+* text=auto eol=lf
