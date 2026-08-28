@@ -30,6 +30,10 @@
         throw new Error('A tool needs a name.');
       }
       if (typeof descriptor.execute !== 'function') throw new Error('A tool needs an execute function.');
+      if (typeof rule !== 'function' && typeof descriptor.policy !== 'function') {
+        throw new Error('A tool needs an explicit policy.');
+      }
+      if (tools[descriptor.name]) throw new Error('Tool already registered: ' + descriptor.name + '.');
 
       var original = descriptor.execute;
       var wrapped = Object.assign({}, descriptor, {
@@ -47,7 +51,7 @@
       // Policy belongs to Doorman, not to the WebMCP descriptor.
       delete wrapped.policy;
       var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      tools[descriptor.name] = {
+      var entry = tools[descriptor.name] = {
         descriptor: wrapped,
         original: original,
         rule: rule || descriptor.policy,
@@ -61,6 +65,10 @@
           return context.registerTool(wrapped, optionsForRegistration);
         }).then(function () {
           return { registered: true, name: descriptor.name };
+        }).catch(function (error) {
+          if (tools[descriptor.name] === entry) delete tools[descriptor.name];
+          if (controller) controller.abort();
+          throw error;
         });
       }
       return Promise.resolve({ registered: false, name: descriptor.name, reason: 'webmcp_unavailable' });

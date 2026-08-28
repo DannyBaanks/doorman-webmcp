@@ -30,6 +30,11 @@ Dynamic registration uses the official `AbortSignal` lifecycle: aborting the sig
 The current API is an active proposal. See `_internal/WEBMCP_API_NOTES.md` for the short API note
 used during implementation. `_internal/` is development-only and is ignored from the public repo.
 
+The policy fails closed when a tool has no explicit policy. Registration is transactional: a browser
+registration failure rolls back the local entry. A one-shot delete grant is consumed when its handler
+begins; unregistration is deferred until the result has escaped so older Chrome versions do not
+cancel an already-completed invocation.
+
 ## Security limitation
 
 Doorman is not a sandbox, IAM system, or strong security boundary. The page's own JavaScript could

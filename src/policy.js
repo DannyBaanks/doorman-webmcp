@@ -16,7 +16,7 @@
   }
 
   function decide(rule, args, session) {
-    if (typeof rule !== 'function') return allow();
+    if (typeof rule !== 'function') return deny('no_policy');
     var result = rule(args || {}, session || {});
     if (!result || (result.decision !== 'allowed' && result.decision !== 'denied')) {
       throw new Error('A policy must return an allowed or denied decision.');

@@ -7,8 +7,9 @@ Checked against the official Devpost rules and overview on 2026-08-28.
 | WebMCP-powered web app | Official Rules, Project Requirements | PASS | Static page with imperative `registerTool` source |
 | Human and agent collaboration | Official Rules, What to Create | PASS | Board, policy, approval, receipts |
 | Working live URL | Official Rules, Submission Requirements | HUMAN_ACTION_REQUIRED | Deploy static site and record URL |
-| Public source repository | Official Rules, Submission Requirements | HUMAN_ACTION_REQUIRED | Add authorized GitHub/GitLab/Bitbucket remote and publish |
-| Open-source license visible | Official Rules, repository requirements | PASS locally / HUMAN_ACTION_REQUIRED publicly | `LICENSE` is MIT; verify About section after publication |
+| Public source repository | Official Rules, Submission Requirements | PASS | `https://github.com/DannyBaanks/doorman-webmcp`, public, default branch `main` |
+| Open-source license visible | Official Rules, repository requirements | PASS | GitHub detects MIT; `LICENSE` is present |
+| CI | Release quality | PASS | GitHub Actions run for commit `78cbaca`; Node 20 and 22 green |
 | `document.modelContext.registerTool` present | Official Rules, repository requirements | PASS | `src/doorman.js`, `src/tools.js` |
 | English submission materials | Official Rules, Language Requirements | PASS | README, script, checklist, UI are English |
 | Video under three minutes with audio | Official Rules, video requirement | NOT_YET | `VIDEO_SCRIPT.md` ready; record and upload public YouTube video |

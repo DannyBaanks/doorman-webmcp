@@ -122,9 +122,14 @@ async function run() {
   var approvedId = global.Doorman.toolsRuntime.getApproval().id;
   await global.Doorman.toolsRuntime.approveRequest(approvedId);
   assert.notStrictEqual(runtime.toolNames().indexOf('delete_item'), -1);
+  var activeGrantRequest = await runtime.invoke('request_approval', { action: 'delete_item', target: 'sample-1' });
+  assert.strictEqual(activeGrantRequest.status, 'DENIED');
+  assert.strictEqual(activeGrantRequest.receipt.reason, 'active_grant_exists');
   assert.strictEqual((await runtime.invoke('delete_item', { id: 'sample-1' })).status, 'DENIED');
   assert.notStrictEqual(runtime.toolNames().indexOf('delete_item'), -1);
   assert.strictEqual((await runtime.invoke('delete_item', { id: 'human-1' })).status, 'ALLOWED');
+  assert.notStrictEqual(runtime.toolNames().indexOf('delete_item'), -1, 'tool remains until result escapes');
+  await new Promise(function (resolve) { setTimeout(resolve, 0); });
   assert.strictEqual(runtime.toolNames().indexOf('delete_item'), -1);
   assert.strictEqual((await runtime.invoke('delete_item', { id: 'human-1' })).status, 'DENIED');
   assert.strictEqual(registered[4].options.signal.aborted, true, 'consumed tool is removed by aborting its signal');
@@ -132,11 +137,22 @@ async function run() {
   assert.ok(runtimeReceipts.some(function (receipt) {
     return receipt.tool === 'delete_item' && receipt.execution === 'executed';
   }));
+  await runtime.invoke('request_approval', { action: 'delete_item', target: 'sample-1' });
+  await global.Doorman.toolsRuntime.approveRequest(global.Doorman.toolsRuntime.getApproval().id);
+  assert.strictEqual((await runtime.invoke('delete_item', { id: 'sample-1' })).status, 'ALLOWED');
+  await new Promise(function (resolve) { setTimeout(resolve, 0); });
+  assert.strictEqual(runtime.toolNames().indexOf('delete_item'), -1);
   var selfApprove = await runtime.invoke('request_approval', {
     action: 'delete_item', target: 'missing-item', approved: true
   });
   assert.strictEqual(selfApprove.status, 'DENIED');
   assert.strictEqual(selfApprove.receipt.reason, 'invalid_approval_request');
+
+  var declared = global.Doorman.tools.schemas();
+  assert.strictEqual(declared.list_items.annotations.readOnlyHint, true);
+  assert.strictEqual(declared.list_items.annotations.untrustedContentHint, true);
+  assert.strictEqual(declared.add_item.inputSchema.properties.text.maxLength, 140);
+  assert.strictEqual(declared.update_item.inputSchema.additionalProperties, false);
 
   var noWebmcpBoard = {
     AUTHORS: { SAMPLE: 'sample', HUMAN: 'you', AGENT: 'agent' },
@@ -161,8 +177,16 @@ async function run() {
     modelContext: { registerTool: function () { throw new Error('tools permission denied'); } }
   });
   await assert.rejects(function () {
-    return registrationFailure.registerTool({ name: 'blocked', execute: function () {} });
+    return registrationFailure.registerTool({ name: 'blocked', execute: function () {} }, global.Doorman.policy.allow);
   }, /tools permission denied/);
+  assert.deepStrictEqual(registrationFailure.toolNames(), [], 'failed registration rolls back internal state');
+
+  assert.throws(function () {
+    global.Doorman.create({ ledger: { record: function (x) { return x; }, list: function () { return []; } } })
+      .registerTool({ name: 'unprotected', execute: function () {} });
+  }, /explicit policy/);
+
+  assert.strictEqual((await global.Doorman.create({ ledger: { record: function (x) { return x; }, list: function () { return []; } } }).invoke('no_policy', {})).status, 'DENIED');
 
   console.log('slice 3: 3 always-on tools and ownership policy passed');
   console.log('slice 4: human approval and one-shot delete passed');

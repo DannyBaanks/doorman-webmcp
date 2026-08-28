@@ -13,15 +13,18 @@
         description: 'Read the current items on the shared board. This never changes the board.',
         inputSchema: {
           type: 'object',
-          properties: { filter: { type: 'string', description: 'Optional text to search for.' } }
-        }
+          properties: { filter: { type: 'string', maxLength: 140, description: 'Optional text to search for.' } },
+          additionalProperties: false
+        },
+        annotations: { readOnlyHint: true, untrustedContentHint: true }
       },
       add_item: {
         name: 'add_item',
         description: 'Add a new item to the shared board.',
         inputSchema: {
           type: 'object',
-          properties: { text: { type: 'string', description: 'The item text, up to 140 characters.' } },
+          properties: { text: { type: 'string', minLength: 1, maxLength: 140, description: 'The item text, up to 140 characters.' } },
+          additionalProperties: false,
           required: ['text']
         }
       },
@@ -32,8 +35,9 @@
           type: 'object',
           properties: {
             id: { type: 'string', description: 'The item id.' },
-            text: { type: 'string', description: 'The replacement text, up to 140 characters.' }
+            text: { type: 'string', minLength: 1, maxLength: 140, description: 'The replacement text, up to 140 characters.' }
           },
+          additionalProperties: false,
           required: ['id', 'text']
         }
       },
@@ -45,8 +49,9 @@
           properties: {
             action: { type: 'string', enum: ['delete_item'], description: 'The sensitive action requested.' },
             target: { type: 'string', description: 'The id of the one item to delete.' },
-            reason: { type: 'string', description: 'Why the agent wants this action.' }
+            reason: { type: 'string', maxLength: 280, description: 'Why the agent wants this action.' }
           },
+          additionalProperties: false,
           required: ['action', 'target']
         }
       },
@@ -56,6 +61,7 @@
         inputSchema: {
           type: 'object',
           properties: { id: { type: 'string', description: 'The approved item id.' } },
+          additionalProperties: false,
           required: ['id']
         }
       }
@@ -91,6 +97,7 @@
     doorman.setReceiptListener(refresh);
 
     function registerDelete() {
+      if (doorman.toolNames().indexOf('delete_item') !== -1) return Promise.resolve(false);
       return doorman.registerTool(definitions.delete_item, function (args) {
         if (!approval || approval.status !== 'approved') {
           return global.Doorman.policy.deny('human_approval_required');
@@ -138,7 +145,12 @@
       try {
         removed = board.remove(args.id);
       } finally {
-        doorman.unregisterTool('delete_item');
+        // Chrome versions before 153 can cancel an in-flight call when its
+        // registration signal is aborted. Let the successful result escape first.
+        setTimeout(function () {
+          doorman.unregisterTool('delete_item');
+          refresh();
+        }, 0);
         refresh();
       }
       return textResult({ item: removed, approval: 'consumed' });
@@ -153,6 +165,9 @@
           : global.Doorman.policy.deny('not_owned_by_agent_session');
       }),
       doorman.registerTool(definitions.request_approval, function (args) {
+        if (approval && approval.status === 'approved') {
+          return global.Doorman.policy.deny('active_grant_exists');
+        }
         if (args.approved === true || args.action !== 'delete_item' || !args.target || !board.get(args.target)) {
           return global.Doorman.policy.deny('invalid_approval_request');
         }
