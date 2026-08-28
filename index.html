@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doorman — capability is not authority</title>
+<meta name="description" content="A WebMCP page that shows which tools an agent was actually allowed to use.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128682;</text></svg>">
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --panel: #ffffff;
+    --ink: #16151a;
+    --muted: #6c6a75;
+    --line: #e3e0da;
+    --accent: #3a5a9b;
+    --allow: #2f6b45;
+    --deny: #9b3a3a;
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131316;
+      --panel: #1b1b1f;
+      --ink: #eceaf2;
+      --muted: #9a97a4;
+      --line: #2e2e34;
+      --accent: #8fb0ea;
+      --allow: #71c191;
+      --deny: #e08a8a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131316;
+    --panel: #1b1b1f;
+    --ink: #eceaf2;
+    --muted: #9a97a4;
+    --line: #2e2e34;
+    --accent: #8fb0ea;
+    --allow: #71c191;
+    --deny: #e08a8a;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+
+  header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; margin-bottom: 1.5rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .35rem; letter-spacing: -.01em; }
+  h1 .door { opacity: .7; }
+  .thesis { margin: 0; font-size: 1.05rem; max-width: 62ch; }
+  .thesis strong { font-weight: 650; }
+  .equation {
+    font-family: var(--mono);
+    font-size: .85rem;
+    color: var(--muted);
+    margin-top: .9rem;
+  }
+  .equation b { color: var(--ink); font-weight: 600; }
+
+  #env {
+    display: flex;
+    gap: .6rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: .8rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    padding: .7rem .9rem;
+    margin: 1.5rem 0;
+  }
+  #env .dot {
+    width: .55rem; height: .55rem; border-radius: 50%;
+    display: inline-block; background: var(--muted);
+    position: relative; top: -1px;
+  }
+  #env.ok .dot { background: var(--allow); }
+  #env.absent .dot { background: var(--deny); }
+  #env .detail { color: var(--muted); }
+
+  .panels { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  section.panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    padding: 1rem 1.1rem 1.2rem;
+    min-height: 190px;
+  }
+  section.panel h2 {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 0 0 .75rem;
+    font-weight: 600;
+  }
+  .pending {
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--muted);
+    border-left: 2px solid var(--line);
+    padding-left: .7rem;
+  }
+  footer {
+    margin-top: 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .85rem;
+  }
+  footer a { color: var(--accent); }
+  .disclaimer { max-width: 68ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1><span class="door">&#128682;</span> Doorman</h1>
+    <p class="thesis">
+      This page hands an AI agent real tools. Some it may use freely, some leave a receipt, and
+      some it simply does not have &mdash; until you grant them, one use at a time.
+      <strong>Registering a tool is not the same as granting the authority to use it.</strong>
+    </p>
+    <p class="equation">capability_available <b>!=</b> capability_exercised</p>
+  </header>
+
+  <div id="env" hidden>
+    <span class="dot" aria-hidden="true"></span>
+    <span id="env-label">Checking this browser&hellip;</span>
+    <span class="detail" id="env-detail"></span>
+  </div>
+
+  <div class="panels">
+    <section class="panel" id="capabilities">
+      <h2>Capabilities</h2>
+      <p class="pending">What exists, and what is currently granted.<br>Arrives in slice 3.</p>
+    </section>
+
+    <section class="panel" id="board">
+      <h2>Board</h2>
+      <p class="pending">The small shared list the tools act on.<br>Arrives in slice 1.</p>
+    </section>
+
+    <section class="panel" id="ledger">
+      <h2>Activity</h2>
+      <p class="pending">Requested / allowed / denied / executed, with receipts.<br>Arrives in slice 2.</p>
+    </section>
+  </div>
+
+  <footer>
+    <p class="disclaimer">
+      <strong>Doorman is not a security boundary.</strong> This page&rsquo;s own JavaScript could
+      bypass it, and a hostile page is out of scope. It is an observable authority boundary: a
+      pattern for cooperative agents and a window for the human watching. Receipts are an audit
+      log for you, not evidence for anyone else.
+    </p>
+    <p>
+      MIT licensed &middot; built for
+      <a href="https://webmcp.devpost.com/">The WebMCP Challenge</a>
+    </p>
+  </footer>
+
+</div>
+
+<script>
+  // Honest environment detection. The page never pretends an agent surface exists.
+  (function reportEnvironment() {
+    var el = document.getElementById('env');
+    var label = document.getElementById('env-label');
+    var detail = document.getElementById('env-detail');
+    var present = typeof document.modelContext !== 'undefined' && document.modelContext !== null;
+
+    if (present) {
+      el.className = 'ok';
+      label.textContent = 'WebMCP available';
+      detail.textContent = '— an agent can discover the tools this page registers.';
+    } else {
+      el.className = 'absent';
+      label.textContent = 'WebMCP not available in this browser';
+      detail.textContent = '— the page still works for you; no agent surface is exposed.';
+    }
+    el.hidden = false;
+  })();
+</script>
+</body>
+</html>

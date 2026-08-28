@@ -1,0 +1,19 @@
+# Internal design notes. They name a private system and must never ship.
+/_internal/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.vscode/
+.idea/
+
+# Node, only if a dev server is ever added. The app itself has no build step.
+node_modules/
+npm-debug.log*
+
+# Nothing generated belongs in here
+dist/
+*.log
