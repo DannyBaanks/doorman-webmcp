@@ -7,169 +7,596 @@
 <meta name="description" content="A WebMCP page that shows which tools an agent was actually allowed to use.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128682;</text></svg>">
 <style>
+  /* ------------------------------------------------------------------
+     Doorman — visual layer.
+
+     Near-monochrome by default. Colour carries exactly one meaning here:
+     the state of an authority decision. Green for granted, amber for
+     conditional or awaiting a human, red for withheld or refused. No
+     surface is ever filled with a state colour; state appears as a small
+     indicator, a compact badge, or a hairline.
+     ------------------------------------------------------------------ */
   :root {
-    --bg: #fbfaf8;
-    --panel: #ffffff;
-    --sunk: #f4f2ee;
-    --ink: #16151a;
-    --muted: #6c6a75;
-    --line: #e3e0da;
-    --accent: #3a5a9b;
-    --allow: #2f6b45;
-    --deny: #9b3a3a;
-    --radius: 10px;
+    --bg:        #ffffff;
+    --bg-subtle: #f7f7f8;
+    --bg-hover:  #f2f2f3;
+    --ink:       #0d0d0d;
+    --ink-2:     #5b5b5b;
+    --muted:     #8e8e8e;
+    --line:      #e6e6e6;
+    --line-soft: #f0f0f0;
+    --accent:    #0d0d0d;
+    --on-accent: #ffffff;
+
+    --allow:     #1a7f52;
+    --allow-bg:  #ecf6f0;
+    --hold:      #9a6510;
+    --hold-bg:   #fbf3e6;
+    --deny:      #b42318;
+    --deny-bg:   #fdf1f0;
+
+    --r-sm: 6px;
+    --r:    10px;
+    --r-lg: 14px;
+    --pill: 999px;
+
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #131316; --panel: #1b1b1f; --sunk: #232329; --ink: #eceaf2;
-      --muted: #9a97a4; --line: #2e2e34; --accent: #8fb0ea; --allow: #71c191; --deny: #e08a8a;
+      --bg: #0d0d0d; --bg-subtle: #161616; --bg-hover: #1e1e1e;
+      --ink: #ececec; --ink-2: #b0b0b0; --muted: #858585;
+      --line: #2b2b2b; --line-soft: #1f1f1f;
+      --accent: #ececec; --on-accent: #0d0d0d;
+      --allow: #62c493; --allow-bg: #14241c;
+      --hold:  #d8a44f; --hold-bg:  #251d10;
+      --deny:  #ef8b84; --deny-bg:  #281514;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #131316; --panel: #1b1b1f; --sunk: #232329; --ink: #eceaf2;
-    --muted: #9a97a4; --line: #2e2e34; --accent: #8fb0ea; --allow: #71c191; --deny: #e08a8a;
+    --bg: #0d0d0d; --bg-subtle: #161616; --bg-hover: #1e1e1e;
+    --ink: #ececec; --ink-2: #b0b0b0; --muted: #858585;
+    --line: #2b2b2b; --line-soft: #1f1f1f;
+    --accent: #ececec; --on-accent: #0d0d0d;
+    --allow: #62c493; --allow-bg: #14241c;
+    --hold:  #d8a44f; --hold-bg:  #251d10;
+    --deny:  #ef8b84; --deny-bg:  #281514;
   }
 
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
 
-  header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; margin-bottom: 1.5rem; }
-  h1 { font-size: 1.6rem; margin: 0 0 .35rem; letter-spacing: -.01em; }
-  h1 .door { opacity: .7; }
-  .thesis { margin: 0; font-size: 1.05rem; max-width: 62ch; }
-  .thesis strong { font-weight: 650; }
-  .equation { font-family: var(--mono); font-size: .85rem; color: var(--muted); margin-top: .9rem; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 4rem 1.5rem 5rem; }
+
+  /* ---------------------------------------------------------- header */
+
+  header { margin-bottom: 2.25rem; }
+
+  h1 {
+    font-size: 1.625rem;
+    font-weight: 600;
+    letter-spacing: -.021em;
+    margin: 0 0 .75rem;
+  }
+
+  .thesis {
+    margin: 0;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    letter-spacing: -.006em;
+    color: var(--ink-2);
+    max-width: 36em;
+  }
+  .thesis strong { color: var(--ink); font-weight: 500; }
+
+  .equation {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .75rem;
+    color: var(--ink-2);
+    background: var(--bg-subtle);
+    border-radius: var(--r-sm);
+    padding: .3rem .6rem;
+    margin: 1.25rem 0 0;
+  }
   .equation b { color: var(--ink); font-weight: 600; }
 
+  /* ------------------------------------------------ environment strip */
+
   #env {
-    display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap;
-    font-family: var(--mono); font-size: .8rem;
-    border: 1px solid var(--line); border-radius: var(--radius);
-    background: var(--panel); padding: .7rem .9rem; margin: 1.5rem 0;
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: .8125rem;
+    color: var(--muted);
+    padding: 0;
+    margin: 1.5rem 0 2rem;
   }
   #env .dot {
-    width: .55rem; height: .55rem; border-radius: 50%;
-    display: inline-block; background: var(--muted); position: relative; top: -1px;
+    width: .4375rem; height: .4375rem; border-radius: 50%;
+    background: var(--muted); flex: none;
   }
-  #env.ok .dot { background: var(--allow); }
+  #env #env-label { color: var(--ink-2); font-weight: 500; }
+  #env.ok .dot     { background: var(--allow); }
   #env.absent .dot { background: var(--deny); }
-  #env .detail { color: var(--muted); }
 
-  .panels { display: grid; gap: 1rem; grid-template-columns: 1.35fr 1fr; align-items: start; }
-  .stack { display: grid; gap: 1rem; }
-  @media (max-width: 760px) { .panels { grid-template-columns: 1fr; } }
+  /* ------------------------------------------------------- primitives */
 
-  section.panel {
-    border: 1px solid var(--line); border-radius: var(--radius);
-    background: var(--panel); padding: 1rem 1.1rem 1.2rem;
-  }
-  section.panel h2 {
-    font-size: .78rem; text-transform: uppercase; letter-spacing: .08em;
-    color: var(--muted); margin: 0 0 .75rem; font-weight: 600;
-    display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
-  }
-  h2 .count { font-family: var(--mono); text-transform: none; letter-spacing: 0; }
-  .pending {
-    font-family: var(--mono); font-size: .8rem; color: var(--muted);
-    border-left: 2px solid var(--line); padding-left: .7rem;
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--bg);
+    padding: 1.25rem 1.375rem 1.375rem;
   }
 
-  .capability-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
-  .capability-row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-  .capability-name { font-family: var(--mono); font-size: .82rem; }
-  .capability-status { font-family: var(--mono); font-size: .68rem; letter-spacing: .03em; }
-  .capability-status.available { color: var(--allow); }
-  .capability-status.unavailable { color: var(--deny); }
-  .capability-detail { display: flex; gap: .65rem; align-items: baseline; font-family: var(--mono); font-size: .68rem; }
-  .capability-authority { color: var(--muted); }
-  .approval { border: 1px solid var(--deny); border-radius: 7px; padding: .75rem; margin-top: .9rem; }
-  .approval-copy { margin: 0 0 .65rem; font-size: .88rem; }
-  .approval .btn { margin-right: .4rem; }
-  .receipt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
-  .receipt { display: grid; grid-template-columns: 2.3rem 1fr auto; gap: .4rem .65rem; align-items: baseline; font-size: .8rem; }
-  .receipt-number, .receipt-tool, .receipt-execution { font-family: var(--mono); font-size: .72rem; }
-  .receipt-number, .receipt-execution, .receipt-reason { color: var(--muted); }
-  .receipt-args, .receipt-result { grid-column: 2 / -1; color: var(--muted); font-family: var(--mono); font-size: .68rem; overflow-wrap: anywhere; }
-  .receipt-decision.allowed { color: var(--allow); }
-  .receipt-decision.denied { color: var(--deny); }
-
-  /* board */
-  #board-form { display: flex; gap: .5rem; margin-bottom: .9rem; }
-  #board-input {
-    flex: 1; min-width: 0; font: inherit; font-size: .92rem;
-    padding: .5rem .65rem; color: var(--ink); background: var(--sunk);
-    border: 1px solid var(--line); border-radius: 7px;
+  .panel-title {
+    font-size: .8125rem;
+    font-weight: 600;
+    letter-spacing: -.005em;
+    color: var(--ink);
+    margin: 0 0 .875rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
   }
-  #board-input:focus-visible, .edit-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .panel-title .count {
+    font-weight: 400;
+    font-size: .75rem;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+
+  .panel-note {
+    font-size: .8125rem;
+    color: var(--muted);
+    margin: -.625rem 0 1rem;
+  }
 
   .btn {
-    font: inherit; font-size: .82rem; padding: .4rem .7rem; cursor: pointer;
-    color: var(--ink); background: var(--panel);
-    border: 1px solid var(--line); border-radius: 7px;
+    font: inherit;
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1;
+    min-height: 2rem;
+    padding: .5rem .875rem;
+    cursor: pointer;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--pill);
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
   }
-  .btn:hover { border-color: var(--muted); }
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-danger { border-color: var(--deny); color: var(--deny); }
+  .btn:hover { background: var(--bg-hover); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .btn-primary:hover { background: var(--accent); border-color: var(--accent); opacity: .86; }
+  .btn-danger:hover { border-color: var(--deny); color: var(--deny); background: var(--bg); }
+
   .btn-link {
-    background: none; border: none; padding: 0; color: var(--muted);
-    font-size: .78rem; cursor: pointer; text-decoration: underline;
+    background: none; border: none; padding: 0;
+    color: var(--muted); font: inherit; font-size: .8125rem;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .btn-link:hover { color: var(--ink); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+
+  /* A badge is the only place a state colour is allowed to fill anything,
+     and it is deliberately small. */
+  .badge {
+    font-size: .6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    padding: .1875rem .4375rem;
+    border-radius: var(--r-sm);
+    white-space: nowrap;
+    background: var(--bg-subtle);
+    color: var(--ink-2);
+  }
+  .badge.is-allow { color: var(--allow); background: var(--allow-bg); }
+  .badge.is-hold  { color: var(--hold);  background: var(--hold-bg); }
+  .badge.is-deny  { color: var(--deny);  background: var(--deny-bg); }
+
+  /* ---------------------------------------------- approval, first class
+
+     The moment a human is asked for destructive authority. It sits at full
+     width directly under the header so it is impossible to miss in a screen
+     recording, and it is the first thing after the header on a phone. It is
+     never a filled red surface: the state reads from one dot and one badge. */
+
+  .approval {
+    margin-bottom: 1rem;
+    border-color: var(--line);
+  }
+  .approval.is-pending { border-color: var(--hold); }
+
+  .approval-head {
+    display: flex; align-items: center; gap: .5rem;
+    margin: 0 0 .5rem;
+    font-size: .8125rem; font-weight: 600; color: var(--ink);
+  }
+  .approval-head .dot {
+    width: .4375rem; height: .4375rem; border-radius: 50%; flex: none;
+    background: var(--muted);
+  }
+  .approval.is-pending  .approval-head .dot { background: var(--hold); }
+  .approval.is-approved .approval-head .dot { background: var(--allow); }
+  .approval.is-consumed .approval-head .dot { background: var(--muted); }
+  .approval.is-denied   .approval-head .dot { background: var(--deny); }
+
+  .approval-subject {
+    margin: 0 0 .25rem;
+    font-size: 1.0625rem;
+    letter-spacing: -.008em;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .approval-copy { margin: 0; font-size: .875rem; color: var(--ink-2); max-width: 46em; }
+  .approval-actions { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+
+  @keyframes surface-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .approval:not([hidden]) { animation: surface-in .18s ease-out; }
+
+  /* ------------------------------------------------------------ layout */
+
+  .panels {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1.45fr 1fr;
+    align-items: start;
+    margin-bottom: 1rem;
   }
 
-  #board-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+  /* ------------------------------------------------------------- board */
+
+  #board-form { display: flex; gap: .5rem; margin-bottom: .5rem; }
+
+  #board-input {
+    flex: 1; min-width: 0;
+    font: inherit; font-size: .9375rem;
+    padding: .5625rem .875rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--pill);
+  }
+  #board-input::placeholder { color: var(--muted); }
+  #board-input:focus { border-color: var(--muted); }
+
+  #board-list { list-style: none; margin: 0; padding: 0; }
+
   .item {
-    display: flex; align-items: center; gap: .75rem; justify-content: space-between;
-    padding: .5rem .6rem; border: 1px solid transparent; border-radius: 7px; background: var(--sunk);
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    justify-content: space-between;
+    padding: .8125rem .5rem;
+    margin: 0 -.5rem;
+    border-radius: var(--r-sm);
+    border-top: 1px solid var(--line-soft);
+    transition: background .14s ease;
   }
-  .item.editing { gap: .5rem; }
+  .item:first-child { border-top: none; }
+  .item:hover { background: var(--bg-subtle); }
   .item-main { min-width: 0; }
-  .item-text { display: block; word-break: break-word; font-size: .95rem; }
-  .item-meta { display: flex; gap: .5rem; align-items: baseline; margin-top: .15rem; }
-  .tag {
-    font-family: var(--mono); font-size: .68rem; letter-spacing: .03em;
-    padding: .05rem .35rem; border-radius: 4px; border: 1px solid var(--line); color: var(--muted);
+  .item-text { display: block; word-break: break-word; font-size: .9375rem; line-height: 1.45; }
+
+  /* Authorship is metadata, not a decoration. It stays small and grey; only
+     the word itself distinguishes an agent-created item from a human one. */
+  .item-meta {
+    display: flex; gap: .4375rem; align-items: baseline;
+    margin-top: .1875rem;
+    font-size: .75rem; color: var(--muted);
   }
-  .tag-you { color: var(--accent); border-color: currentColor; }
-  .tag-agent { color: var(--allow); border-color: currentColor; }
-  .time { font-family: var(--mono); font-size: .7rem; color: var(--muted); }
-  .item-actions { display: flex; gap: .35rem; align-items: center; flex-shrink: 0; }
-  .confirm-label { font-size: .78rem; color: var(--deny); }
+  .item-author { color: var(--muted); }
+  .item-author.is-agent { color: var(--ink-2); }
+  .item-meta .sep { opacity: .45; }
+  .time { font-variant-numeric: tabular-nums; }
+
+  .item-actions { display: flex; gap: .375rem; align-items: center; flex-shrink: 0; }
+  .item-actions .btn { opacity: .75; }
+  .item:hover .item-actions .btn, .item-actions .btn:focus-visible { opacity: 1; }
+  .confirm-label { font-size: .8125rem; color: var(--deny); }
+
   .edit-input {
-    flex: 1; min-width: 0; font: inherit; font-size: .92rem; padding: .35rem .5rem;
-    color: var(--ink); background: var(--panel); border: 1px solid var(--accent); border-radius: 6px;
+    flex: 1; min-width: 0;
+    font: inherit; font-size: .9375rem;
+    padding: .5rem .75rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: var(--r-sm);
   }
-  .empty { color: var(--muted); font-size: .9rem; padding: .5rem .1rem; }
-  .message { font-size: .8rem; color: var(--muted); min-height: 1.2em; margin: .6rem 0 0; }
+
+  .empty { color: var(--muted); font-size: .875rem; padding: .8125rem 0; }
+  .message { font-size: .8125rem; color: var(--muted); min-height: 1.4em; margin: .625rem 0 0; }
   .message.error { color: var(--deny); }
+
   .board-note {
-    font-size: .75rem; color: var(--muted); margin: .8rem 0 0;
+    font-size: .8125rem; color: var(--muted);
+    margin: .875rem 0 0;
     display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
   }
 
-  footer {
-    margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
-    color: var(--muted); font-size: .85rem;
+  /* --------------------------------------------------------- authority
+
+     Not an admin table. One line per tool, state legible at a glance and
+     spelled out in words so colour is never the only carrier. */
+
+  .capability-list { list-style: none; margin: 0; padding: 0; }
+
+  .capability-row {
+    display: grid;
+    grid-template-columns: .75rem 1fr;
+    align-items: baseline;
+    column-gap: .625rem;
+    row-gap: .1875rem;
+    padding: .625rem .5rem;
+    margin: 0 -.5rem;
+    border-radius: var(--r-sm);
   }
-  footer a { color: var(--accent); }
-  .disclaimer { max-width: 68ch; }
+
+  .capability-row::before {
+    content: "";
+    width: .4375rem; height: .4375rem;
+    border-radius: 50%;
+    justify-self: center;
+    align-self: center;
+    background: var(--allow);
+    transition: background .2s ease;
+  }
+  .capability-row.is-conditional::before { background: var(--hold); }
+  .capability-row.is-granted::before     { background: var(--hold); }
+  .capability-row.is-withheld::before {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--deny);
+  }
+
+  .capability-name {
+    font-family: var(--mono);
+    font-size: .8125rem;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .capability-row.is-withheld .capability-name { color: var(--ink-2); }
+
+  .capability-state {
+    grid-column: 2;
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: .375rem;
+    font-size: .75rem; color: var(--muted);
+  }
+  .capability-state .sep { opacity: .45; }
+
+  /* The one moment the demo is built around: a capability arriving, and
+     later leaving. Both are marked, both are brief. */
+  @keyframes grant-in {
+    from { background: var(--hold-bg); }
+    to   { background: transparent; }
+  }
+  @keyframes consumed-out {
+    from { background: var(--bg-subtle); }
+    to   { background: transparent; }
+  }
+  .capability-row.just-granted  { animation: grant-in 2s ease-out; }
+  .capability-row.just-consumed { animation: consumed-out 2s ease-out; }
+
+  .capability-flash { color: var(--ink-2); }
+
+  /* -------------------------------------------------- live activity
+
+     Receipts are read as sentences. The machine payload is one disclosure
+     away, never in front of the reader. */
+
+  .activity { margin-bottom: 1rem; }
+  .receipt-list { list-style: none; margin: 0; padding: 0; }
+
+  .receipt {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 1rem;
+    padding: .8125rem 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .receipt:first-child { border-top: none; padding-top: 0; }
+
+  .receipt-title {
+    grid-column: 1;
+    font-size: .9375rem;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .receipt-time {
+    grid-column: 2; grid-row: 1;
+    font-size: .75rem; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .receipt-subject {
+    grid-column: 1 / -1;
+    font-size: .875rem; color: var(--ink-2);
+    margin-top: .125rem;
+    overflow-wrap: anywhere;
+  }
+  .receipt-subject .quoted { color: var(--ink); }
+  .receipt-verdict {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; flex-wrap: wrap; gap: .4375rem;
+    margin-top: .375rem;
+    font-size: .75rem; color: var(--muted);
+  }
+  .receipt-verdict .sep { opacity: .45; }
+
+  .receipt-raw { grid-column: 1 / -1; margin-top: .4375rem; }
+  .receipt-raw > summary {
+    cursor: pointer;
+    font-size: .75rem; color: var(--muted);
+    list-style: none; width: fit-content;
+  }
+  .receipt-raw > summary::-webkit-details-marker { display: none; }
+  .receipt-raw > summary::before {
+    content: "\25B8";
+    display: inline-block;
+    margin-right: .3125rem;
+    transition: transform .15s ease;
+  }
+  .receipt-raw[open] > summary::before { transform: rotate(90deg); }
+  .receipt-raw > summary:hover { color: var(--ink); }
+
+  .payload-label {
+    display: block;
+    margin: .5rem 0 .1875rem;
+    font-size: .6875rem; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .receipt-payload {
+    margin: 0;
+    padding: .625rem .75rem;
+    background: var(--bg-subtle);
+    border-radius: var(--r-sm);
+    font-family: var(--mono); font-size: .6875rem; line-height: 1.55;
+    color: var(--ink-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 14rem;
+    overflow-y: auto;
+  }
+
+  /* --------------------------------------------------- how it works
+
+     Illustrative, and shaped so it can never be mistaken for evidence:
+     collapsed by default, grey ground, no receipt styling. */
+
+  .how {
+    background: var(--bg-subtle);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    padding: 0;
+  }
+  .how > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 1rem 1.375rem;
+    font-size: .8125rem; font-weight: 600; color: var(--ink);
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .how > summary::-webkit-details-marker { display: none; }
+  .how > summary::before {
+    content: "\25B8";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform .15s ease;
+  }
+  .how[open] > summary::before { transform: rotate(90deg); }
+  .how-body { padding: 0 1.375rem 1.25rem; }
+  .how-body > p { margin: 0 0 .875rem; font-size: .8125rem; color: var(--muted); }
+
+  .example-list {
+    margin: 0; padding: 0;
+    list-style: none;
+    display: grid; gap: .625rem;
+    font-size: .8125rem; color: var(--ink-2);
+    counter-reset: step;
+  }
+  .example-list li {
+    display: grid;
+    grid-template-columns: 1.25rem 1fr;
+    gap: .5rem;
+    align-items: baseline;
+    counter-increment: step;
+  }
+  .example-list li::before {
+    content: counter(step);
+    font-family: var(--mono); font-size: .6875rem; color: var(--muted);
+  }
+  .example-list code { font-family: var(--mono); font-size: .78125rem; color: var(--ink); }
+  .example-list .outcome { color: var(--muted); }
+
+  /* ----------------------------------------------------------- footer */
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line-soft);
+    color: var(--muted);
+    font-size: .8125rem;
+  }
+  footer a { color: var(--ink-2); text-underline-offset: 2px; }
+  footer a:hover { color: var(--ink); }
+  .disclaimer { max-width: 46em; margin: 0 0 .875rem; line-height: 1.65; }
+  .disclaimer strong { color: var(--ink-2); font-weight: 500; }
+
+  /* ----------------------------------------------------------- motion
+
+     Motion here only ever explains a state change. Anyone who has asked the
+     system for less of it still sees every state, just without the movement:
+     the words "granted for one use" and "grant consumed" carry the same
+     information the animation does. */
+
+  @media (prefers-reduced-motion: reduce) {
+    .approval:not([hidden]),
+    .capability-row.just-granted,
+    .capability-row.just-consumed { animation: none; }
+    * { transition-duration: .01ms !important; }
+  }
+
+  /* -------------------------------------------------------- responsive */
+
+  @media (max-width: 860px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 2.5rem 1.125rem 3.5rem; }
+    header { margin-bottom: 1.75rem; }
+    h1 { font-size: 1.5rem; }
+    .thesis { font-size: 1rem; }
+    .panel { padding: 1.125rem 1rem 1.25rem; border-radius: var(--r); }
+    .how > summary { padding: .875rem 1rem; }
+    .how-body { padding: 0 1rem 1.125rem; }
+
+    /* Thumb-sized controls, and no control smaller than the text it acts on. */
+    .btn { min-height: 2.5rem; padding: .625rem 1rem; }
+    .item-actions .btn { opacity: 1; }
+    .item { flex-wrap: wrap; }
+    .item-actions { width: 100%; justify-content: flex-end; }
+    .approval-actions .btn { flex: 1; }
+
+    .receipt { grid-template-columns: 1fr; }
+    .receipt-time { grid-column: 1; grid-row: auto; order: -1; margin-bottom: .125rem; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <h1><span class="door">&#128682;</span> Doorman</h1>
+    <h1>Doorman</h1>
     <p class="thesis">
-      This page hands an AI agent real tools. Some it may use freely, some leave a receipt, and
-      some it simply does not have &mdash; until you grant them, one use at a time.
-      <strong>Registering a tool is not the same as granting the authority to use it.</strong>
+      An AI agent can discover capabilities on this page. Discovery does not grant authority to
+      exercise them. <strong>Registering a tool is not the same as granting the authority to use
+      it.</strong>
     </p>
-    <p class="equation">capability_available <b>!=</b> capability_exercised</p>
+    <p class="equation">capability_available <b>&ne;</b> capability_exercised</p>
   </header>
 
   <div id="env" hidden>
@@ -178,10 +605,12 @@
     <span class="detail" id="env-detail"></span>
   </div>
 
+  <section class="panel approval" id="approval" hidden aria-live="polite"></section>
+
   <div class="panels">
 
     <section class="panel" id="board">
-      <h2>Board <span class="count" id="board-count"></span></h2>
+      <h2 class="panel-title">Board <span class="count" id="board-count"></span></h2>
 
       <form id="board-form" autocomplete="off">
         <input id="board-input" type="text" maxlength="140" placeholder="Add an item&hellip;"
@@ -198,32 +627,32 @@
       </p>
     </section>
 
-    <div class="stack">
-      <section class="panel" id="capabilities">
-        <h2>Capabilities</h2>
-        <p class="pending">What exists, and what is currently granted.</p>
-      </section>
-
-      <section class="panel approval" id="approval" hidden aria-live="polite"></section>
-
-      <section class="panel" id="ledger">
-        <h2>Activity</h2>
-        <ol class="receipt-list" id="activity-list"></ol>
-      </section>
-
-      <section class="panel example-flow">
-        <h2>Example Flow</h2>
-        <p class="pending">Illustrative sequence, not live receipts.</p>
-        <ol class="example-list">
-          <li><code>add_item</code> <strong>ALLOWED</strong> <span>executed</span></li>
-          <li><code>update_item</code> <strong>DENIED</strong> <span>not owned by agent session</span></li>
-          <li><code>request_approval</code> <strong>PENDING</strong> <span>human decision</span></li>
-          <li><code>delete_item</code> <strong>ALLOWED once</strong> <span>then unregistered</span></li>
-        </ol>
-      </section>
-    </div>
+    <section class="panel" id="capabilities">
+      <h2 class="panel-title">Authority</h2>
+      <p class="panel-note">What an agent can reach right now, and on what terms.</p>
+    </section>
 
   </div>
+
+  <section class="panel activity" id="ledger">
+    <h2 class="panel-title">Live activity</h2>
+    <p class="panel-note">Every decision this page made, in the order it made them.</p>
+    <ol class="receipt-list" id="activity-list"></ol>
+  </section>
+
+  <details class="how">
+    <summary>How it works</summary>
+    <div class="how-body">
+      <p>An illustration of the sequence. These are not receipts from this session.</p>
+      <ol class="example-list">
+        <li><span><code>add_item</code> &mdash; <span class="outcome">allowed, executed</span></span></li>
+        <li><span><code>update_item</code> &mdash; <span class="outcome">denied, item not created by this agent session</span></span></li>
+        <li><span><code>request_approval</code> &mdash; <span class="outcome">allowed, waiting on a human decision</span></span></li>
+        <li><span>A human approves one deletion &mdash; <span class="outcome"><code>delete_item</code> becomes available for that item only</span></span></li>
+        <li><span><code>delete_item</code> &mdash; <span class="outcome">allowed once, then the grant is consumed and the tool is unregistered</span></span></li>
+      </ol>
+    </div>
+  </details>
 
   <footer>
     <p class="disclaimer">
