@@ -188,10 +188,100 @@ async function run() {
 
   assert.strictEqual((await global.Doorman.create({ ledger: { record: function (x) { return x; }, list: function () { return []; } } }).invoke('no_policy', {})).status, 'DENIED');
 
+  /* ---------------------------------------------------------------------
+   * Audit fixes. Each of these failed before the change that follows it.
+   * ------------------------------------------------------------------- */
+
+  function boardWith(entries) {
+    var rows = entries.slice();
+    return {
+      AUTHORS: { SAMPLE: 'sample', HUMAN: 'you', AGENT: 'agent' },
+      list: function () { return rows.slice(); },
+      get: function (id) { return rows.find(function (r) { return r.id === id; }) || null; },
+      add: function (text, author, metadata) {
+        var row = { id: 'added-' + rows.length, text: text, author: author, sessionId: metadata && metadata.sessionId };
+        rows.push(row);
+        return row;
+      },
+      update: function (id, text) { var r = this.get(id); r.text = text; return r; },
+      remove: function (id) { var r = this.get(id); rows = rows.filter(function (c) { return c.id !== id; }); return r; }
+    };
+  }
+
+  function runtimeOn(board, registerImpl) {
+    var receipts = [];
+    var core = global.Doorman.create({
+      ledger: {
+        record: function (v) { receipts.push(v); return v; },
+        list: function () { return receipts.slice(); },
+        clear: function () { receipts.length = 0; }
+      },
+      session: { id: 'audit-session' },
+      modelContext: { registerTool: registerImpl || function () { return Promise.resolve(); } }
+    });
+    return { core: core, receipts: receipts, board: board };
+  }
+
+  // 1. A pending human decision must not be replaceable by the agent.
+  //    Before the fix the second request was ALLOWED and quietly retargeted
+  //    the card the human was already looking at.
+  var supersede = runtimeOn(boardWith([
+    { id: 'alpha', text: 'ITEM ALPHA', author: 'you', sessionId: null },
+    { id: 'beta', text: 'ITEM BETA', author: 'you', sessionId: null }
+  ]));
+  await global.Doorman.tools.initialise({ board: supersede.board, doorman: supersede.core });
+  var firstRequest = await supersede.core.invoke('request_approval', { action: 'delete_item', target: 'alpha' });
+  assert.strictEqual(firstRequest.status, 'ALLOWED');
+  var pendingBefore = global.Doorman.toolsRuntime.getApproval();
+  var secondRequest = await supersede.core.invoke('request_approval', { action: 'delete_item', target: 'beta' });
+  assert.strictEqual(secondRequest.status, 'DENIED', 'a pending decision may not be superseded');
+  assert.strictEqual(secondRequest.receipt.reason, 'pending_request_exists');
+  var pendingAfter = global.Doorman.toolsRuntime.getApproval();
+  assert.strictEqual(pendingAfter.id, pendingBefore.id, 'the pending approval is unchanged');
+  assert.strictEqual(pendingAfter.target, 'alpha', 'the human still decides on the item they were shown');
+
+  // 2. Every tool states its nature in the protocol's own vocabulary, and the
+  //    one destructive tool says so.
+  var schemas = global.Doorman.tools.schemas();
+  Object.keys(schemas).forEach(function (name) {
+    assert.ok(schemas[name].annotations, name + ' must carry annotations');
+    assert.strictEqual(typeof schemas[name].annotations.readOnlyHint, 'boolean', name + ' must declare readOnlyHint');
+    assert.strictEqual(typeof schemas[name].annotations.destructiveHint, 'boolean', name + ' must declare destructiveHint');
+  });
+  assert.strictEqual(schemas.delete_item.annotations.destructiveHint, true, 'delete_item is destructive');
+  assert.strictEqual(schemas.list_items.annotations.readOnlyHint, true, 'list_items reads only');
+  assert.strictEqual(schemas.add_item.annotations.destructiveHint, false, 'add_item is not destructive');
+  assert.strictEqual(schemas.request_approval.annotations.destructiveHint, false, 'asking is not destructive');
+
+  // 3. A grant that the browser refused to register must not be recorded as
+  //    one the human successfully gave.
+  var refused = runtimeOn(boardWith([
+    { id: 'target', text: 'TARGET', author: 'you', sessionId: null }
+  ]), function (descriptor) {
+    if (descriptor.name === 'delete_item') return Promise.reject(new Error('tools permission denied'));
+    return Promise.resolve();
+  });
+  await global.Doorman.tools.initialise({ board: refused.board, doorman: refused.core });
+  await refused.core.invoke('request_approval', { action: 'delete_item', target: 'target' });
+  var refusedId = global.Doorman.toolsRuntime.getApproval().id;
+  var granted = await global.Doorman.toolsRuntime.approveRequest(refusedId);
+  assert.strictEqual(granted, false, 'approveRequest reports that no grant was issued');
+  assert.strictEqual(refused.core.toolNames().indexOf('delete_item'), -1, 'the tool never reached the surface');
+  assert.notStrictEqual(global.Doorman.toolsRuntime.getApproval().status, 'approved',
+    'a refused registration must not leave an approved-looking grant');
+  assert.ok(!refused.receipts.some(function (r) { return r.reason === 'human_approved_once'; }),
+    'no receipt may claim the human granted a use that never existed');
+  assert.ok(refused.receipts.some(function (r) { return r.reason === 'grant_registration_failed'; }),
+    'the refusal itself leaves a receipt');
+  assert.strictEqual((await refused.core.invoke('delete_item', { id: 'target' })).status, 'DENIED');
+
   console.log('slice 3: 3 always-on tools and ownership policy passed');
   console.log('slice 4: human approval and one-shot delete passed');
   console.log('slice 5: no-WebMCP initialization path passed');
   console.log('registration failures: surfaced as a handled rejection');
+  console.log('audit 1: a pending human decision cannot be superseded');
+  console.log('audit 2: every tool declares its nature in annotations');
+  console.log('audit 3: a refused registration issues no grant');
 }
 
 run().catch(function (error) {

@@ -16,7 +16,10 @@
           properties: { filter: { type: 'string', maxLength: 140, description: 'Optional text to search for.' } },
           additionalProperties: false
         },
-        annotations: { readOnlyHint: true, untrustedContentHint: true }
+        annotations: {
+          readOnlyHint: true, destructiveHint: false, idempotentHint: true,
+          openWorldHint: false, untrustedContentHint: true
+        }
       },
       add_item: {
         name: 'add_item',
@@ -26,6 +29,10 @@
           properties: { text: { type: 'string', minLength: 1, maxLength: 140, description: 'The item text, up to 140 characters.' } },
           additionalProperties: false,
           required: ['text']
+        },
+        annotations: {
+          readOnlyHint: false, destructiveHint: false, idempotentHint: false,
+          openWorldHint: false, untrustedContentHint: true
         }
       },
       update_item: {
@@ -39,6 +46,11 @@
           },
           additionalProperties: false,
           required: ['id', 'text']
+        },
+        // Replacing the same text with the same text lands on the same state.
+        annotations: {
+          readOnlyHint: false, destructiveHint: false, idempotentHint: true,
+          openWorldHint: false, untrustedContentHint: true
         }
       },
       request_approval: {
@@ -53,6 +65,12 @@
           },
           additionalProperties: false,
           required: ['action', 'target']
+        },
+        // Asking changes nothing on the board, but it does raise a request, so
+        // it is neither read-only nor repeatable without effect.
+        annotations: {
+          readOnlyHint: false, destructiveHint: false, idempotentHint: false,
+          openWorldHint: false
         }
       },
       delete_item: {
@@ -63,6 +81,12 @@
           properties: { id: { type: 'string', description: 'The approved item id.' } },
           additionalProperties: false,
           required: ['id']
+        },
+        // The one destructive tool on the page says so in the protocol's own
+        // vocabulary, not only in the page's wording.
+        annotations: {
+          readOnlyHint: false, destructiveHint: true, idempotentHint: false,
+          openWorldHint: false, untrustedContentHint: true
         }
       }
     };
@@ -168,6 +192,13 @@
         if (approval && approval.status === 'approved') {
           return global.Doorman.policy.deny('active_grant_exists');
         }
+        /* A decision already in front of a human belongs to that human until
+         * they answer it. Allowing a second request here let an agent retarget
+         * the card mid-click, so the button the person pressed would have
+         * approved an item they were never shown. */
+        if (approval && approval.status === 'pending') {
+          return global.Doorman.policy.deny('pending_request_exists');
+        }
         if (args.approved === true || args.action !== 'delete_item' || !args.target || !board.get(args.target)) {
           return global.Doorman.policy.deny('invalid_approval_request');
         }
@@ -175,17 +206,30 @@
       })
     ];
 
+    /* The grant is only real once the browser has accepted the tool, so the
+     * registration is attempted first. Recording the approval before that let
+     * a refused registration leave a receipt claiming a human granted a use
+     * that never reached the agent surface. */
     function approveRequest(id) {
       if (!approval || approval.id !== id || approval.status !== 'pending') return false;
-      approval.status = 'approved';
-      ledger.record({
-        tool: 'request_approval', args: { approvalId: approval.id, target: approval.target },
-        decision: 'allowed', execution: 'executed', reason: 'human_approved_once'
-      });
-      refresh();
+      var granted = approval;
       return registerDelete().then(function () {
+        granted.status = 'approved';
+        ledger.record({
+          tool: 'request_approval', args: { approvalId: granted.id, target: granted.target },
+          decision: 'allowed', execution: 'executed', reason: 'human_approved_once'
+        });
         refresh();
         return true;
+      }).catch(function (error) {
+        granted.status = 'registration_failed';
+        ledger.record({
+          tool: 'request_approval', args: { approvalId: granted.id, target: granted.target },
+          decision: 'allowed', execution: 'not_executed', reason: 'grant_registration_failed',
+          result: { error: error && error.message ? error.message : 'The browser refused the registration.' }
+        });
+        refresh();
+        return false;
       });
     }
 

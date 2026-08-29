@@ -342,25 +342,38 @@
     execution_error: 'the tool failed while running'
   };
 
+  function errorFrom(result) {
+    if (result && typeof result === 'object' && typeof result.error === 'string') return result.error;
+    return null;
+  }
+
   function describe(receipt) {
     var args = receipt.args || {};
     var denied = receipt.decision === 'denied';
+    /* An allowed call that threw is not a success. The ledger already keeps
+     * the decision and the execution apart; reading only the decision here
+     * was reporting a change that never happened. */
+    var failed = receipt.execution === 'execution_error';
+    var attempted = denied || failed;
     var out = { title: '', subject: '', note: null };
 
     if (receipt.tool === 'list_items') {
-      out.title = denied ? 'Agent attempted to read the board' : 'Agent read the board';
+      out.title = attempted ? 'Agent attempted to read the board' : 'Agent read the board';
     } else if (receipt.tool === 'add_item') {
-      out.title = denied ? 'Agent attempted to add an item' : 'Agent added an item';
+      out.title = attempted ? 'Agent attempted to add an item' : 'Agent added an item';
       if (args.text) out.subject = quote(asText(args.text));
     } else if (receipt.tool === 'update_item') {
-      out.title = denied ? 'Agent attempted to update an item' : 'Agent updated an item';
+      out.title = attempted ? 'Agent attempted to update an item' : 'Agent updated an item';
       /* Always name the target, never the attempted replacement text: on a
        * denial the replacement was never applied, and showing it reads as if
        * an item by that name existed. An allowed update already resolves to
        * the new text through the board. */
       out.subject = subjectFor(args.id, receipt);
     } else if (receipt.tool === 'request_approval') {
-      if (receipt.reason === 'human_approved_once') {
+      if (receipt.reason === 'grant_registration_failed') {
+        out.title = 'Grant could not be issued';
+        out.subject = 'delete_item, for ' + subjectFor(args.target, receipt);
+      } else if (receipt.reason === 'human_approved_once') {
         out.title = 'Human granted one use';
         out.subject = 'delete_item, for ' + subjectFor(args.target, receipt);
         out.note = 'valid for that item only';
@@ -368,19 +381,20 @@
         out.title = 'Human denied the request';
         out.subject = 'delete_item, for ' + subjectFor(args.target, receipt);
       } else {
-        out.title = denied ? 'Agent attempted to request approval' : 'Agent requested approval';
+        out.title = attempted ? 'Agent attempted to request approval' : 'Agent requested approval';
         out.subject = 'Delete ' + subjectFor(args.target, receipt);
-        if (!denied) out.note = 'pending human decision';
+        if (!attempted) out.note = 'pending human decision';
       }
     } else if (receipt.tool === 'delete_item') {
-      out.title = denied ? 'Agent attempted to delete an item' : 'Agent deleted an item';
+      out.title = attempted ? 'Agent attempted to delete an item' : 'Agent deleted an item';
       out.subject = subjectFor(args.id, receipt);
-      if (!denied) out.note = 'grant consumed';
+      if (!attempted) out.note = 'grant consumed';
     } else {
       out.title = 'Agent called ' + asText(receipt.tool);
     }
 
     if (denied) out.note = DENIAL_NOTES[receipt.reason] || asText(receipt.reason) || null;
+    else if (failed) out.note = errorFrom(receipt.result) || 'the tool failed while running';
     return out;
   }
 
@@ -414,6 +428,11 @@
       var verdict = el('div', 'receipt-verdict');
       var decisionWord = receipt.decision === 'denied' ? 'Denied' : 'Allowed';
       verdict.appendChild(el('span', 'badge is-' + (receipt.decision === 'denied' ? 'deny' : 'allow'), decisionWord));
+      /* The decision and the execution are shown side by side precisely when
+       * they disagree: allowed, and still did not happen. */
+      if (receipt.execution === 'execution_error') {
+        verdict.appendChild(el('span', 'badge is-deny', 'Did not complete'));
+      }
       if (described.note) {
         verdict.appendChild(sep());
         verdict.appendChild(el('span', null, described.note));
@@ -459,6 +478,10 @@
     denied: {
       heading: 'Request denied',
       body: 'delete_item was not granted.'
+    },
+    registration_failed: {
+      heading: 'Grant could not be issued',
+      body: 'The browser refused to register delete_item. Nothing was granted.'
     }
   };
 
