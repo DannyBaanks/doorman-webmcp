@@ -16,24 +16,29 @@
      surface is ever filled with a state colour; state appears as a small
      indicator, a compact badge, or a hairline.
      ------------------------------------------------------------------ */
+  /* The ground is a warm off-white and the panels are white, so a card is
+     told apart from the page by its own lightness rather than by a heavy
+     border. Neither end of the scale is pure: no #fff ground, no #000 ink. */
   :root {
-    --bg:        #ffffff;
-    --bg-subtle: #f7f7f8;
-    --bg-hover:  #f2f2f3;
-    --ink:       #0d0d0d;
-    --ink-2:     #5b5b5b;
-    --muted:     #8e8e8e;
-    --line:      #e6e6e6;
-    --line-soft: #f0f0f0;
-    --accent:    #0d0d0d;
+    --bg:        #f7f7f5;
+    --panel:     #ffffff;
+    --bg-subtle: #f1f1ee;
+    --bg-hover:  #ebebe7;
+    --ink:       #1c1c1a;
+    --ink-2:     #5e5e59;
+    --muted:     #8d8d87;
+    --line:      #e4e4df;
+    --line-soft: #ededea;
+    --accent:    #1c1c1a;
     --on-accent: #ffffff;
+    --shadow:    0 1px 2px rgba(28, 28, 26, .05), 0 1px 3px rgba(28, 28, 26, .03);
 
     --allow:     #1a7f52;
-    --allow-bg:  #ecf6f0;
-    --hold:      #9a6510;
-    --hold-bg:   #fbf3e6;
-    --deny:      #b42318;
-    --deny-bg:   #fdf1f0;
+    --allow-bg:  #e9f4ee;
+    --hold:      #8f6212;
+    --hold-bg:   #f8f0e2;
+    --deny:      #b0271d;
+    --deny-bg:   #fbeeec;
 
     --r-sm: 6px;
     --r:    10px;
@@ -43,25 +48,31 @@
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
+
+  /* Dark keeps the same relationship: a soft charcoal ground with panels one
+     step lighter. Shadows do no work on a dark ground, so borders carry the
+     separation there instead. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0d0d0d; --bg-subtle: #161616; --bg-hover: #1e1e1e;
-      --ink: #ececec; --ink-2: #b0b0b0; --muted: #858585;
-      --line: #2b2b2b; --line-soft: #1f1f1f;
-      --accent: #ececec; --on-accent: #0d0d0d;
-      --allow: #62c493; --allow-bg: #14241c;
-      --hold:  #d8a44f; --hold-bg:  #251d10;
-      --deny:  #ef8b84; --deny-bg:  #281514;
+      --bg: #1b1b1a; --panel: #232322; --bg-subtle: #2a2a28; --bg-hover: #323230;
+      --ink: #eaeae7; --ink-2: #a9a9a3; --muted: #7f7f79;
+      --line: #353532; --line-soft: #2c2c2a;
+      --accent: #eaeae7; --on-accent: #1b1b1a;
+      --shadow: none;
+      --allow: #63c493; --allow-bg: #1a2a22;
+      --hold:  #d6a44f; --hold-bg:  #2b2317;
+      --deny:  #ee8b84; --deny-bg:  #2e1b19;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0d0d0d; --bg-subtle: #161616; --bg-hover: #1e1e1e;
-    --ink: #ececec; --ink-2: #b0b0b0; --muted: #858585;
-    --line: #2b2b2b; --line-soft: #1f1f1f;
-    --accent: #ececec; --on-accent: #0d0d0d;
-    --allow: #62c493; --allow-bg: #14241c;
-    --hold:  #d8a44f; --hold-bg:  #251d10;
-    --deny:  #ef8b84; --deny-bg:  #281514;
+    --bg: #1b1b1a; --panel: #232322; --bg-subtle: #2a2a28; --bg-hover: #323230;
+    --ink: #eaeae7; --ink-2: #a9a9a3; --muted: #7f7f79;
+    --line: #353532; --line-soft: #2c2c2a;
+    --accent: #eaeae7; --on-accent: #1b1b1a;
+    --shadow: none;
+    --allow: #63c493; --allow-bg: #1a2a22;
+    --hold:  #d6a44f; --hold-bg:  #2b2317;
+    --deny:  #ee8b84; --deny-bg:  #2e1b19;
   }
 
   * { box-sizing: border-box; }
@@ -83,12 +94,46 @@
 
   header { margin-bottom: 2.25rem; }
 
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .75rem;
+  }
+
   h1 {
     font-size: 1.625rem;
     font-weight: 600;
     letter-spacing: -.021em;
-    margin: 0 0 .75rem;
+    margin: 0;
   }
+
+  /* Small, quiet, and out of the way. It carries an icon because the icon is
+     the information; there is no text label to read. */
+  .theme-toggle {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    color: var(--ink-2);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--pill);
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, border-color .14s ease;
+  }
+  .theme-toggle:hover { background: var(--bg-hover); color: var(--ink); }
+  .theme-toggle svg { width: 1rem; height: 1rem; display: block; }
+
+  .theme-toggle .icon-sun  { display: none; }
+  .theme-toggle .icon-moon { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .icon-sun  { display: block; }
+    :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
+  }
+  :root[data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
+  :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
   .thesis {
     margin: 0;
@@ -137,7 +182,8 @@
   .panel {
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
-    background: var(--bg);
+    background: var(--panel);
+    box-shadow: var(--shadow);
     padding: 1.25rem 1.375rem 1.375rem;
   }
 
@@ -170,11 +216,11 @@
     font-size: .8125rem;
     font-weight: 500;
     line-height: 1;
-    min-height: 2rem;
-    padding: .5rem .875rem;
+    min-height: 2.125rem;
+    padding: .5rem .9375rem;
     cursor: pointer;
     color: var(--ink);
-    background: var(--bg);
+    background: var(--panel);
     border: 1px solid var(--line);
     border-radius: var(--pill);
     transition: background .14s ease, border-color .14s ease, color .14s ease;
@@ -186,7 +232,9 @@
     color: var(--on-accent);
   }
   .btn-primary:hover { background: var(--accent); border-color: var(--accent); opacity: .86; }
-  .btn-danger:hover { border-color: var(--deny); color: var(--deny); background: var(--bg); }
+  /* Delete is sober, not alarming: it only picks up the deny colour on hover,
+     and the page never leads with it. */
+  .btn-danger:hover { border-color: var(--deny); color: var(--deny); background: var(--panel); }
 
   .btn-link {
     background: none; border: none; padding: 0;
@@ -270,17 +318,22 @@
 
   #board-form { display: flex; gap: .5rem; margin-bottom: .5rem; }
 
+  /* The field sits on the ground colour rather than the card, so it reads as
+     sunken into the panel instead of floating on it. */
   #board-input {
     flex: 1; min-width: 0;
     font: inherit; font-size: .9375rem;
-    padding: .5625rem .875rem;
+    min-height: 2.5rem;
+    padding: .625rem 1rem;
     color: var(--ink);
     background: var(--bg);
     border: 1px solid var(--line);
     border-radius: var(--pill);
+    transition: border-color .14s ease, background .14s ease;
   }
   #board-input::placeholder { color: var(--muted); }
-  #board-input:focus { border-color: var(--muted); }
+  #board-input:hover { border-color: var(--muted); }
+  #board-input:focus { border-color: var(--ink-2); background: var(--panel); }
 
   #board-list { list-style: none; margin: 0; padding: 0; }
 
@@ -529,7 +582,30 @@
     font-family: var(--mono); font-size: .6875rem; color: var(--muted);
   }
   .example-list code { font-family: var(--mono); font-size: .78125rem; color: var(--ink); }
-  .example-list .outcome { color: var(--muted); }
+
+  .step { display: grid; gap: .1875rem; }
+  .step-head {
+    display: flex; align-items: center; flex-wrap: wrap; gap: .4375rem;
+    color: var(--ink);
+  }
+  .example-list .outcome { color: var(--muted); line-height: 1.55; }
+
+  /* The explainer borrows the live vocabulary so the words a reader learns
+     here are the words they will see in the panels. It is deliberately
+     outlined rather than filled, so an illustration can never be mistaken for
+     a receipt at a glance. */
+  .chip {
+    font-size: .6875rem;
+    font-weight: 500;
+    padding: .0625rem .375rem;
+    border-radius: var(--r-sm);
+    white-space: nowrap;
+    color: var(--ink-2);
+    border: 1px solid var(--line);
+  }
+  .chip.is-allow { color: var(--allow); border-color: currentColor; }
+  .chip.is-hold  { color: var(--hold);  border-color: currentColor; }
+  .chip.is-deny  { color: var(--deny);  border-color: currentColor; }
 
   /* ----------------------------------------------------------- footer */
 
@@ -585,12 +661,35 @@
     .receipt-time { grid-column: 1; grid-row: auto; order: -1; margin-bottom: .125rem; }
   }
 </style>
+<script>
+  // Applied before the first paint so a stored choice never flashes the other
+  // theme. Without storage the media query decides, which is the default.
+  try {
+    var storedTheme = localStorage.getItem('doorman.theme');
+    if (storedTheme === 'dark' || storedTheme === 'light') {
+      document.documentElement.setAttribute('data-theme', storedTheme);
+    }
+  } catch (err) { /* storage unavailable; the media query still applies */ }
+</script>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <h1>Doorman</h1>
+    <div class="header-row">
+      <h1>Doorman</h1>
+      <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"></path>
+        </svg>
+      </button>
+    </div>
     <p class="thesis">
       An AI agent can discover capabilities on this page. Discovery does not grant authority to
       exercise them. <strong>Registering a tool is not the same as granting the authority to use
@@ -645,11 +744,39 @@
     <div class="how-body">
       <p>An illustration of the sequence. These are not receipts from this session.</p>
       <ol class="example-list">
-        <li><span><code>add_item</code> &mdash; <span class="outcome">allowed, executed</span></span></li>
-        <li><span><code>update_item</code> &mdash; <span class="outcome">denied, item not created by this agent session</span></span></li>
-        <li><span><code>request_approval</code> &mdash; <span class="outcome">allowed, waiting on a human decision</span></span></li>
-        <li><span>A human approves one deletion &mdash; <span class="outcome"><code>delete_item</code> becomes available for that item only</span></span></li>
-        <li><span><code>delete_item</code> &mdash; <span class="outcome">allowed once, then the grant is consumed and the tool is unregistered</span></span></li>
+        <li>
+          <div class="step">
+            <span class="step-head"><code>add_item</code> <span class="chip is-allow">Allowed</span></span>
+            <span class="outcome">The agent may use it freely, and every use leaves a receipt.</span>
+          </div>
+        </li>
+        <li>
+          <div class="step">
+            <span class="step-head"><code>update_item</code> <span class="chip is-hold">Conditional</span></span>
+            <span class="outcome">Allowed only on items the agent created in this session. Anything
+              else comes back <span class="chip is-deny">Denied</span>.</span>
+          </div>
+        </li>
+        <li>
+          <div class="step">
+            <span class="step-head"><code>request_approval</code> <span class="chip is-allow">Allowed</span></span>
+            <span class="outcome">It can only ask. It never approves anything and never deletes.</span>
+          </div>
+        </li>
+        <li>
+          <div class="step">
+            <span class="step-head">A human approves one deletion <span class="chip is-hold">Granted once</span></span>
+            <span class="outcome"><code>delete_item</code> appears on the agent surface, valid for
+              that one item.</span>
+          </div>
+        </li>
+        <li>
+          <div class="step">
+            <span class="step-head"><code>delete_item</code> <span class="chip">Grant consumed</span></span>
+            <span class="outcome">It runs once, then the tool is unregistered and reads
+              <span class="chip is-deny">Unavailable</span> again.</span>
+          </div>
+        </li>
       </ol>
     </div>
   </details>
@@ -676,6 +803,44 @@
 <script src="src/tools.js?v=2"></script>
 <script src="src/ui.js?v=2"></script>
 <script>
+  /* Theme toggle. Presentation only: it moves one attribute and remembers the
+   * choice for this browser. Nothing about the page's behaviour depends on it. */
+  (function themeToggle() {
+    var root = document.documentElement;
+    var button = document.getElementById('theme-toggle');
+    if (!button) return;
+
+    function effective() {
+      var set = root.getAttribute('data-theme');
+      if (set === 'dark' || set === 'light') return set;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark' : 'light';
+    }
+
+    function relabel() {
+      button.setAttribute('aria-label',
+        effective() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+    }
+
+    button.addEventListener('click', function () {
+      var next = effective() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('doorman.theme', next); } catch (err) { /* not persisted */ }
+      relabel();
+    });
+
+    /* The icon follows the theme through CSS, but the label is text and has to
+     * be kept in step by hand — including when the system flips while the page
+     * is open and no explicit choice has been stored. */
+    if (window.matchMedia) {
+      var query = window.matchMedia('(prefers-color-scheme: dark)');
+      if (query.addEventListener) query.addEventListener('change', relabel);
+      else if (query.addListener) query.addListener(relabel);
+    }
+
+    relabel();
+  })();
+
   // Honest environment detection. The page never pretends an agent surface exists.
   (function reportEnvironment() {
     var el = document.getElementById('env');
