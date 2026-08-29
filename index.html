@@ -299,6 +299,14 @@
   .approval-copy { margin: 0; font-size: .875rem; color: var(--ink-2); max-width: 46em; }
   .approval-actions { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
 
+  .approval-reason {
+    margin: .625rem 0 0;
+    font-size: .875rem;
+    color: var(--ink-2);
+    max-width: 46em;
+  }
+  .approval-reason strong { color: var(--ink); font-weight: 500; }
+
   @keyframes surface-in {
     from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: none; }
@@ -370,6 +378,13 @@
   .item-actions .btn { opacity: .75; }
   .item:hover .item-actions .btn, .item-actions .btn:focus-visible { opacity: 1; }
   .confirm-label { font-size: .8125rem; color: var(--deny); }
+
+  /* An armed delete is a half-completed action and reads as one: the row
+     recedes so the confirmation can come forward. The state is never carried
+     by colour alone. */
+  .item.is-armed { background: var(--bg-subtle); }
+  .item.is-armed .confirm-label { font-weight: 500; }
+  .item.is-armed .btn-danger { opacity: 1; }
 
   .edit-input {
     flex: 1; min-width: 0;
@@ -802,7 +817,7 @@
 <script src="src/ledger.js?v=3"></script>
 <script src="src/doorman.js?v=3"></script>
 <script src="src/tools.js?v=3"></script>
-<script src="src/ui.js?v=3"></script>
+<script src="src/ui.js?v=4"></script>
 <script>
   /* Theme toggle. Presentation only: it moves one attribute and remembers the
    * choice for this browser. Nothing about the page's behaviour depends on it. */

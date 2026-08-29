@@ -17,3 +17,6 @@ npm-debug.log*
 # Nothing generated belongs in here
 dist/
 *.log
+
+# DevTools recording helper. Explicitly marked "NO va en el repo".
+__director_tmp.js

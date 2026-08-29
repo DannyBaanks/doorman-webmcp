@@ -72,6 +72,10 @@
   function renderItem(item) {
     var row = el('li', 'item');
     row.dataset.id = item.id;
+    /* An armed delete is a distinct interaction state, not a text label alone:
+     * the row gets a quiet visual cue so it never reads as idle between the
+     * first click and the confirmation. */
+    if (pendingDelete === item.id) row.classList.add('is-armed');
 
     var main = el('div', 'item-main');
     main.appendChild(el('span', 'item-text', item.text));
@@ -201,11 +205,27 @@
       if (editingId) {
         var input = els.list.querySelector('.edit-input');
         if (input) { input.focus(); input.select(); }
+      } else if (pendingDelete) {
+        var confirm = els.list.querySelector('[data-action="delete-confirm"]');
+        if (confirm) confirm.focus();
       }
     } catch (err) {
       flash(err.message, true);
       render();
     }
+  }
+
+  /* Escape backs out of a half-finished action without leaving it armed. Two
+   * states own this: a pending delete and an open edit. Neither should be
+   * stuck until the user clicks a specific button. */
+  function onListKeydown(event) {
+    if (event.key !== 'Escape') return;
+    if (!pendingDelete && !editingId) return;
+    event.preventDefault();
+    pendingDelete = null;
+    editingId = null;
+    flash('');
+    render();
   }
 
   function onReset() {
@@ -510,6 +530,16 @@
     panel.appendChild(el('p', 'approval-subject', 'Delete ' + (labelFor(approval.target) || approval.target)));
     panel.appendChild(el('p', 'approval-copy', copy.body));
 
+    /* A human is about to grant a destructive one-shot capability. Letting
+     * them see the agent's own stated reason is the difference between
+     * consent and a blind yes. */
+    if (approval.reason && approval.reason !== 'No reason provided.') {
+      var reasonEl = el('p', 'approval-reason');
+      reasonEl.appendChild(el('strong', null, 'Reason: '));
+      reasonEl.appendChild(document.createTextNode(approval.reason));
+      panel.appendChild(reasonEl);
+    }
+
     if (status !== 'pending') return;
 
     var actions = el('div', 'approval-actions');
@@ -558,6 +588,7 @@
     board.load();
     els.form.addEventListener('submit', onSubmit);
     els.list.addEventListener('click', onListClick);
+    els.list.addEventListener('keydown', onListKeydown);
     els.reset.addEventListener('click', onReset);
     var approval = document.getElementById('approval');
     if (approval) approval.addEventListener('click', onApprovalClick);
