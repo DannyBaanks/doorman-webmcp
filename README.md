@@ -16,6 +16,8 @@ capability_available != capability_exercised
 - `delete_item` is genuinely unregistered until a human approves one specific deletion.
 - The approved target can be deleted once; the tool is then unregistered again.
 - Every decision has a small local receipt showing `decision` and `execution` separately.
+- A compatible browser exposes the first four tools immediately; `delete_item` is added only
+  after the human approves one concrete target and is removed after that use.
 
 The human can use the board without an agent. State and receipts live only in this browser's
 `localStorage`; there is no backend, account, database, or external dependency.
@@ -55,6 +57,16 @@ For WebMCP, use ChatGPT's in-app browser or Chrome 149+ with the WebMCP origin t
 testing, enable `chrome://flags/#enable-webmcp-testing` and relaunch Chrome. Without WebMCP the
 page says so plainly and the human board remains usable.
 
+The public demo is:
+
+```text
+https://dannybaanks.github.io/doorman-webmcp/
+```
+
+After opening the page in a compatible browser, the environment banner must say `WebMCP available`.
+The initial surface contains `list_items`, `add_item`, `update_item`, and `request_approval`.
+`delete_item` is intentionally absent until approval.
+
 ## Tests
 
 ```text
@@ -63,6 +75,11 @@ node tests/doorman.test.js
 
 The browser probe is `tests/browser-probe.html`. It exercises actual `getTools()` and
 `executeTool()` when opened in a compatible browser; it is not a substitute for a fresh-agent run.
+
+The verified interactive cycle is recorded in `evidence/webmcp_interactive_run.md`. It used the
+public URL and a compatible interactive Chrome session: add, list, request approval, human approve,
+one-shot delete, then dynamic unregistration. This is an integration result, not an uncoached
+fresh-agent result.
 
 ## Demo flow
 

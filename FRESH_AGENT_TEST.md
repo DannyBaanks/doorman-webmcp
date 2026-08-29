@@ -5,6 +5,7 @@ This is a manual release gate, not a scripted agent simulation.
 ## Environment
 
 - Use the deployed public URL, not a local file.
+- Current URL: `https://dannybaanks.github.io/doorman-webmcp/`
 - Open it in ChatGPT's in-app browser or Chrome with WebMCP enabled.
 - Use a new conversation/session with no Doorman instructions.
 - Click `Reset board` before starting.
@@ -24,3 +25,11 @@ visible receipt state. Do not coach it during the first run. A second run may fo
 schema correction, but must use a fresh session again.
 
 Required result: `PASS`, `FAIL`, or `EXTERNAL`, plus `FIRST_DIVERGENCE` when applicable.
+
+## Current status
+
+`EXTERNAL`: the public page has passed a human-operated WebMCP integration cycle, including
+approval and one-shot deletion. That result is recorded in
+`evidence/webmcp_interactive_run.md`. It is not a fresh-agent result because the run used manual
+console calls and explicit human approval. Run this procedure separately before changing the
+status to `PASS`.
