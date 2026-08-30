@@ -129,6 +129,14 @@
         if (args.id !== approval.target) {
           return global.Doorman.policy.deny('target_not_approved');
         }
+        /* One-shot atomicity lives HERE, not in the handler. Two concurrent
+         * invocations both read the decision before either handler runs; only
+         * consuming at the decision lets the second one see the grant is gone.
+         * Invoke runs each decision synchronously, so the second of two
+         * back-to-back calls already sees `consumed` and is denied. Consuming
+         * before execution is also fail-closed: a grant whose use errors is
+         * still spent. */
+        approval.status = 'consumed';
         return global.Doorman.policy.allow('approved_one_shot_target');
       });
     }
@@ -163,14 +171,14 @@
       return textResult({ approval: approval, status: 'pending_human_decision' });
     };
     definitions.delete_item.execute = function (args) {
-      // The handler boundary is the point at which a one-shot grant is consumed.
-      approval.status = 'consumed';
+      // The grant was already consumed at the decision. This handler only
+      // removes the item and defers unregistration until the result has
+      // escaped, because older Chrome can cancel an in-flight call when its
+      // registration signal is aborted.
       var removed;
       try {
         removed = board.remove(args.id);
       } finally {
-        // Chrome versions before 153 can cancel an in-flight call when its
-        // registration signal is aborted. Let the successful result escape first.
         setTimeout(function () {
           doorman.unregisterTool('delete_item');
           refresh();
@@ -181,8 +189,16 @@
     };
 
     var registrations = [
-      doorman.registerTool(definitions.list_items, global.Doorman.policy.allow),
-      doorman.registerTool(definitions.add_item, global.Doorman.policy.allow),
+      /* These two are allowed unconditionally, so their rule is a wrapper that
+       * emits a fixed reason. Passing `policy.allow` straight through would put
+       * the invocation args in the `reason` parameter and leave a dirty
+       * object in every receipt. */
+      doorman.registerTool(definitions.list_items, function () {
+        return global.Doorman.policy.allow('always_allowed');
+      }),
+      doorman.registerTool(definitions.add_item, function () {
+        return global.Doorman.policy.allow('always_allowed');
+      }),
       doorman.registerTool(definitions.update_item, function (args, currentSession) {
         return ownItem(args, currentSession)
           ? global.Doorman.policy.allow('owned_by_agent_session')

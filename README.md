@@ -33,9 +33,10 @@ The current API is an active proposal. See `_internal/WEBMCP_API_NOTES.md` for t
 used during implementation. `_internal/` is development-only and is ignored from the public repo.
 
 The policy fails closed when a tool has no explicit policy. Registration is transactional: a browser
-registration failure rolls back the local entry. A one-shot delete grant is consumed when its handler
-begins; unregistration is deferred until the result has escaped so older Chrome versions do not
-cancel an already-completed invocation.
+registration failure rolls back the local entry. A one-shot delete grant is consumed at the policy
+decision, not at the handler, so two concurrent invocations of the same approved target cannot both
+be authorized; unregistration is deferred until the result has escaped so older Chrome versions do
+not cancel an already-completed invocation.
 
 ## Security limitation
 

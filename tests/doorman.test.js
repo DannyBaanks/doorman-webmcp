@@ -275,6 +275,31 @@ async function run() {
     'the refusal itself leaves a receipt');
   assert.strictEqual((await refused.core.invoke('delete_item', { id: 'target' })).status, 'DENIED');
 
+  // 4. A one-shot grant is atomic at the decision, not the handler. Two
+  //    concurrent invocations of the same approved target must not both be
+  //    authorized: exactly one ALLOWED + executed, one DENIED + not_executed.
+  var atomic = runtimeOn(boardWith([
+    { id: 'one', text: 'ONLY ONE', author: 'you', sessionId: null }
+  ]));
+  await global.Doorman.tools.initialise({ board: atomic.board, doorman: atomic.core });
+  await atomic.core.invoke('request_approval', { action: 'delete_item', target: 'one' });
+  await global.Doorman.toolsRuntime.approveRequest(global.Doorman.toolsRuntime.getApproval().id);
+  var concurrent = await Promise.all([
+    atomic.core.invoke('delete_item', { id: 'one' }),
+    atomic.core.invoke('delete_item', { id: 'one' })
+  ]);
+  var wins = concurrent.filter(function (r) { return r.status === 'ALLOWED'; });
+  var loses = concurrent.filter(function (r) { return r.status === 'DENIED'; });
+  assert.strictEqual(wins.length, 1, 'exactly one concurrent delete is authorized');
+  assert.strictEqual(loses.length, 1, 'exactly one concurrent delete is denied');
+  assert.strictEqual(wins[0].receipt.execution, 'executed');
+  assert.strictEqual(loses[0].receipt.execution, 'not_executed');
+  assert.strictEqual(loses[0].receipt.reason, 'human_approval_required');
+  var executedDeletes = atomic.receipts.filter(function (r) {
+    return r.tool === 'delete_item' && r.execution === 'executed';
+  });
+  assert.strictEqual(executedDeletes.length, 1, 'the board is mutated exactly once');
+
   console.log('slice 3: 3 always-on tools and ownership policy passed');
   console.log('slice 4: human approval and one-shot delete passed');
   console.log('slice 5: no-WebMCP initialization path passed');
@@ -282,6 +307,7 @@ async function run() {
   console.log('audit 1: a pending human decision cannot be superseded');
   console.log('audit 2: every tool declares its nature in annotations');
   console.log('audit 3: a refused registration issues no grant');
+  console.log('audit 4: a one-shot grant is atomic under concurrent invoke');
 }
 
 run().catch(function (error) {
