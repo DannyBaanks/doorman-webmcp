@@ -9,7 +9,7 @@ Checked against the official Devpost rules and overview on 2026-08-28.
 | Working live URL | Official Rules, Submission Requirements | PASS | `https://dannybaanks.github.io/doorman-webmcp/` loads over HTTPS |
 | Public source repository | Official Rules, Submission Requirements | PASS | `https://github.com/DannyBaanks/doorman-webmcp`, public, default branch `main` |
 | Open-source license visible | Official Rules, repository requirements | PASS | GitHub detects MIT; `LICENSE` is present |
-| CI | Release quality | PASS | GitHub Actions run for commit `c04e028`; Node 20 and 22 green |
+| CI | Release quality | PASS | GitHub Actions green at HEAD `04dcf02` (ci + pages build); Node 20 and 22 |
 | `document.modelContext.registerTool` present | Official Rules, repository requirements | PASS | `src/doorman.js`, `src/tools.js` |
 | English submission materials | Official Rules, Language Requirements | PASS | README, script, checklist, UI are English |
 | Video under three minutes with audio | Official Rules, video requirement | NOT_YET | `VIDEO_SCRIPT.md` ready; record and upload public YouTube video |
