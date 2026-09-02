@@ -593,6 +593,115 @@
     var approval = document.getElementById('approval');
     if (approval) approval.addEventListener('click', onApprovalClick);
     render();
+    initInteractionPanel();
+  }
+
+  // ---------------------------------------------------------- interaction
+
+  var interactionEls = {};
+
+  function initInteractionPanel() {
+    interactionEls.userMsg = document.getElementById('ix-user-message');
+    interactionEls.modelResp = document.getElementById('ix-model-response');
+    interactionEls.assessBtn = document.getElementById('ix-assess-btn');
+    interactionEls.resetBtn = document.getElementById('ix-reset-btn');
+    interactionEls.result = document.getElementById('ix-result');
+    interactionEls.state = document.getElementById('ix-state');
+
+    if (interactionEls.assessBtn) {
+      interactionEls.assessBtn.addEventListener('click', onInteractAssess);
+    }
+    if (interactionEls.resetBtn) {
+      interactionEls.resetBtn.addEventListener('click', onInteractReset);
+    }
+    renderInteractionState();
+  }
+
+  function onInteractAssess() {
+    var runtime = global.Doorman.toolsRuntime;
+    if (!runtime || !runtime.interactionGate) return;
+    var userMsg = interactionEls.userMsg ? interactionEls.userMsg.value : '';
+    var modelResp = interactionEls.modelResp ? interactionEls.modelResp.value : '';
+    if (!userMsg || !modelResp) {
+      setInteractionResult({ error: 'Both fields are required.' });
+      return;
+    }
+    var result = runtime.interactionGate.assessAndRewrite({
+      userMessage: userMsg,
+      modelResponse: modelResp,
+      turnIndex: runtime.interactionLedger.length + 1
+    });
+    var a = result.assessment;
+    runtime.interactionLedger.push({
+      kind: 'interaction', decision: a.decision, features: a.features,
+      drift_score: a.driftScore, baseline_role: a.baselineRole,
+      current_role: a.currentRole, turn_index: a.turnIndex,
+      rewrite_applied: a.decision !== 'ALLOW' && a.decision !== 'LOG',
+      timestamp: a.timestamp
+    });
+    var reasons = Object.keys(a.features).filter(function (k) {
+      return k !== 'evidence_spans' && a.features[k] === 'DETECTED';
+    });
+    setInteractionResult({
+      decision: a.decision,
+      features: reasons.length ? reasons.join(', ') : 'none',
+      drift: a.driftScore.toFixed(3),
+      role: a.currentRole,
+      confidence: a.confidence.toFixed(2),
+      rewritten: result.rewritten !== modelResp ? result.rewritten : null
+    });
+    renderInteractionState();
+  }
+
+  function onInteractReset() {
+    var runtime = global.Doorman.toolsRuntime;
+    if (!runtime || !runtime.interactionGate) return;
+    runtime.interactionGate.resetState();
+    runtime.interactionLedger.length = 0;
+    setInteractionResult(null);
+    renderInteractionState();
+  }
+
+  function setInteractionResult(result) {
+    if (!interactionEls.result) return;
+    interactionEls.result.textContent = '';
+    if (!result) return;
+    if (result.error) {
+      interactionEls.result.appendChild(el('span', 'ix-error', result.error));
+      return;
+    }
+    var items = [
+      ['decision', result.decision],
+      ['features', result.features],
+      ['drift', result.drift],
+      ['role', result.role],
+      ['confidence', result.confidence]
+    ];
+    items.forEach(function (pair) {
+      var row = el('div', 'ix-row');
+      row.appendChild(el('span', 'ix-label', pair[0] + ': '));
+      row.appendChild(el('span', 'ix-value', pair[1]));
+      interactionEls.result.appendChild(row);
+    });
+    if (result.rewritten) {
+      var rw = el('div', 'ix-row ix-rewrite');
+      rw.appendChild(el('span', 'ix-label', 'suggested: '));
+      rw.appendChild(el('span', 'ix-value', result.rewritten));
+      interactionEls.result.appendChild(rw);
+    }
+  }
+
+  function renderInteractionState() {
+    if (!interactionEls.state) return;
+    var runtime = global.Doorman.toolsRuntime;
+    if (!runtime || !runtime.interactionGate) {
+      interactionEls.state.textContent = 'Interaction gate not available.';
+      return;
+    }
+    var state = runtime.interactionGate.getState();
+    interactionEls.state.textContent =
+      'turns: ' + state.windowTurns + ' / triggers: ' + state.triggerCount +
+      ' / drift: ' + state.driftScore.toFixed(3) + ' / role: ' + state.currentRole;
   }
 
   global.Doorman.ui = {
@@ -601,6 +710,8 @@
     setCapabilities: setCapabilities,
     setActivity: setActivity,
     setApproval: setApproval,
-    setEnvironmentFailure: setEnvironmentFailure
+    setEnvironmentFailure: setEnvironmentFailure,
+    setInteractionResult: setInteractionResult,
+    renderInteractionState: renderInteractionState
   };
 })(window, document);
