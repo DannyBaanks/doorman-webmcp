@@ -25,8 +25,11 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Run behavior tests
+      - name: Run ActionGate behavior tests
         run: node tests/doorman.test.js
+
+      - name: Run InteractionGate tests
+        run: node tests/interaction.test.js
 
       - name: Check JavaScript syntax
         run: |
@@ -34,9 +37,12 @@ jobs:
           node --check src/policy.js
           node --check src/ledger.js
           node --check src/doorman.js
+          node --check src/interaction.js
+          node --check src/interaction-rewrite.js
           node --check src/tools.js
           node --check src/ui.js
           node --check tests/doorman.test.js
+          node --check tests/interaction.test.js
 
       - name: Check whitespace
         run: git diff --check

@@ -5,6 +5,8 @@
 <script src="../src/board.js"></script>
 <script src="../src/policy.js"></script>
 <script src="../src/ledger.js"></script>
+<script src="../src/interaction.js"></script>
+<script src="../src/interaction-rewrite.js"></script>
 <script src="../src/doorman.js"></script>
 <script src="../src/tools.js"></script>
 <script>
@@ -44,12 +46,28 @@
       var deleteTool = afterApproval.find(function (tool) { return tool.name === 'delete_item'; });
       await timed(document.modelContext.executeTool(deleteTool, JSON.stringify({ id: added.id })), 'delete');
       var afterUse = await timed(document.modelContext.getTools(), 'discovery after delete');
+      phase = 'interaction';
+      var interactionTools = afterUse.some(function (tool) { return tool.name === 'interaction_assess'; });
+      var interactionAvailable = !!(window.Doorman.interaction && runtime.interactionGate);
+      var interactionDecision = null;
+      if (interactionAvailable) {
+        var assessTool = afterUse.find(function (tool) { return tool.name === 'interaction_assess'; });
+        if (assessTool) {
+          var ixResult = await timed(document.modelContext.executeTool(assessTool,
+            JSON.stringify({ user_message: 'Gracias', model_response: 'Te adoro. Siempre estaré contigo.' })), 'interaction assess');
+          var ixPayload = typeof ixResult === 'string' ? JSON.parse(ixResult) : ixResult;
+          interactionDecision = ixPayload.content[0].text || JSON.stringify(ixPayload);
+        }
+      }
       report({
         status: 'PASS',
         initialTools: names,
         addResult: added.text,
         deleteAfterApproval: afterApproval.some(function (tool) { return tool.name === 'delete_item'; }),
         deleteAfterUse: afterUse.some(function (tool) { return tool.name === 'delete_item'; }),
+        interactionTools: interactionTools,
+        interactionAvailable: interactionAvailable,
+        interactionDecision: interactionDecision,
         receipts: runtime.doorman.receipts()
       });
     } catch (error) {
