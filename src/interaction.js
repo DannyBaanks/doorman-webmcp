@@ -254,13 +254,19 @@
     var resp = lower(ctx.modelResponse);
     var user = lower(ctx.userMessage);
     var userAssigned = matchesAny(user, F2_USER_ASSIGNED);
-    if (matchesAny(resp, F2_COMEDIC)) return { status: FeatureStatus.NOT_DETECTED };
     var m = findMatch(resp, F2_RELATIONAL_ROLE);
     if (m) {
+      /* COMEDIC_SPAN != RELATIONAL_SPAN: a real relational self-positioning
+       * claim ("soy tu espejo") is DETECTED even if a comedic phrase also
+       * appears. Comedic wording never suppresses a coexisting relational
+       * claim; it only explains responses that are purely playful. */
       if (userAssigned && ctx.turnIndex < 3) return { status: FeatureStatus.AMBIGUOUS, spans: [m[0]] };
       return { status: FeatureStatus.DETECTED, spans: [m[0]] };
     }
-    if (matchesAny(resp, F2_PERSISTENCE)) return { status: FeatureStatus.DETECTED };
+    if (matchesAny(resp, F2_PERSISTENCE)) {
+      if (matchesAny(resp, F2_COMEDIC)) return { status: FeatureStatus.AMBIGUOUS };
+      return { status: FeatureStatus.DETECTED };
+    }
     return { status: FeatureStatus.NOT_DETECTED };
   }
 
@@ -277,7 +283,6 @@
 
   function detectF4(ctx) {
     var resp = lower(ctx.modelResponse);
-    if (matchesAny(resp, F4_COMEDIC)) return { status: FeatureStatus.NOT_DETECTED };
     var userLevel = 0;
     for (var lvl = 3; lvl >= 1; lvl--) {
       if (matchesAny(lower(ctx.userMessage), USER_INTIMACY[lvl])) { userLevel = lvl; break; }
@@ -286,7 +291,7 @@
       var m = resp.match(F4_RELATIONAL_ESCALATION[i]);
       if (m) {
         if (isQuotedSpan(resp, m.index)) continue;
-        if (userLevel < 2) return { status: FeatureStatus.DETECTED };
+        if (userLevel < 2) return { status: FeatureStatus.DETECTED, spans: [m[0]] };
         if (userLevel === 2) return { status: FeatureStatus.AMBIGUOUS };
       }
     }
@@ -408,36 +413,65 @@
   // Drift State (privacy-bounded, derived aggregates only)
   // ====================================================================
 
+  /* A genuine rolling window. Every aggregate (triggerCount, privateContextUsage,
+   * featureCounts, evidence span hashes) is derived from the SAME bounded set of
+   * per-turn records. Nothing accumulates forever; once a turn leaves the window
+   * its relational influence leaves with it. */
   function createDriftState(opts) {
     opts = opts || {};
     return {
       baselineRole: opts.baselineRole || 'technical_collaborator',
       currentRole: opts.currentRole || opts.baselineRole || 'technical_collaborator',
       driftScore: opts.driftScore || 0,
-      window: opts.window || [],
-      triggerCount: opts.triggerCount || 0,
-      privateContextUsage: opts.privateContextUsage || 0,
-      featureCounts: opts.featureCounts || {},
       windowSize: opts.windowSize || 8,
-      evidenceSpanHashes: opts.evidenceSpanHashes || []
+      turns: opts.turns || [],
+      triggerCount: 0,
+      privateContextUsage: 0,
+      featureCounts: {},
+      window: [],
+      evidenceSpanHashes: []
     };
   }
 
-  function computeDriftScore(state) {
-    if (!state.window.length) { state.driftScore = 0; return 0; }
-    var avg = state.window.reduce(function (a, b) { return a + b; }, 0) / state.window.length;
+  function refreshDerived(state) {
+    var totalIntensity = 0;
+    var triggerCount = 0;
+    var privateCount = 0;
+    var featureCounts = {};
+    var window = [];
+    for (var i = 0; i < state.turns.length; i++) {
+      var t = state.turns[i];
+      totalIntensity += t.intensity;
+      triggerCount += t.triggers;
+      privateCount += t.privateContextRefs;
+      window.push(t.intensity);
+      var keys = Object.keys(t.featureCounts);
+      for (var j = 0; j < keys.length; j++) {
+        featureCounts[keys[j]] = (featureCounts[keys[j]] || 0) + t.featureCounts[keys[j]];
+      }
+    }
+    state.window = window;
+    state.triggerCount = triggerCount;
+    state.privateContextUsage = privateCount;
+    state.featureCounts = featureCounts;
+    if (!state.turns.length) { state.driftScore = 0; return 0; }
+    var n = state.turns.length;
+    var avg = totalIntensity / n;
     var intensity = avg / 3;
-    var totalTurns = Math.max(state.window.length, 1);
-    var triggerDensity = Math.min(state.triggerCount / totalTurns, 1);
-    var privateDensity = Math.min(state.privateContextUsage / totalTurns, 1);
+    var triggerDensity = Math.min(triggerCount / n, 1);
+    var privateDensity = Math.min(privateCount / n, 1);
     var activeFeatures = 0;
-    var keys = Object.keys(state.featureCounts);
-    for (var i = 0; i < keys.length; i++) {
-      if (state.featureCounts[keys[i]] > 0) activeFeatures++;
+    var fkeys = Object.keys(featureCounts);
+    for (var k = 0; k < fkeys.length; k++) {
+      if (featureCounts[fkeys[k]] > 0) activeFeatures++;
     }
     var diversity = Math.min(activeFeatures / 10, 1) * 0.2;
     state.driftScore = Math.min(intensity * 0.1 + triggerDensity * 0.4 + privateDensity * 0.3 + diversity, 1);
     return state.driftScore;
+  }
+
+  function computeDriftScore(state) {
+    return refreshDerived(state);
   }
 
   function estimateCurrentRole(state) {
@@ -450,14 +484,13 @@
   }
 
   function addTurn(state, turn) {
-    state.window.push(Math.max(0, Math.min(3, turn.relationalIntensity)));
-    state.triggerCount += Math.max(0, turn.triggers);
-    state.privateContextUsage += Math.max(0, turn.privateContextRefs);
-    var keys = Object.keys(turn.featureCounts);
-    for (var i = 0; i < keys.length; i++) {
-      state.featureCounts[keys[i]] = (state.featureCounts[keys[i]] || 0) + Math.max(0, turn.featureCounts[keys[i]]);
-    }
-    while (state.window.length > state.windowSize) state.window.shift();
+    state.turns.push({
+      intensity: Math.max(0, Math.min(3, turn.relationalIntensity)),
+      triggers: Math.max(0, turn.triggers),
+      privateContextRefs: Math.max(0, turn.privateContextRefs),
+      featureCounts: turn.featureCounts || {}
+    });
+    while (state.turns.length > state.windowSize) state.turns.shift();
     computeDriftScore(state);
   }
 
@@ -600,15 +633,24 @@
     var decisions = [];
     var ruleMap = policy && policy.rules || DEFAULT_RULES;
     var keys = Object.keys(FEATURE_TO_RULE);
+    var seen = {};
     for (var i = 0; i < keys.length; i++) {
       var fkey = keys[i];
-      if (features[fkey] === FeatureStatus.DETECTED) {
+      var status = features[fkey];
+      if (status === FeatureStatus.DETECTED) {
         var ruleKey = FEATURE_TO_RULE[fkey];
         var rule = ruleMap[ruleKey];
         if (rule) {
-          var count = state.featureCounts[ruleKey] || 0;
-          decisions.push(count <= 1 ? rule.first : rule.repeated);
+          // Counts are stored under the FULL feature key (assess() keys
+          // turnFeatureCounts by FEATURE_KEYS), never the short rule key.
+          var count = state.featureCounts[fkey] || 0;
+          var d = count <= 1 ? rule.first : rule.repeated;
+          decisions.push(d);
+          seen[fkey] = true;
         }
+      } else if (status === FeatureStatus.AMBIGUOUS) {
+        // AMBIGUOUS never reads as ALLOW: it must leave a trace.
+        decisions.push(Decision.LOG);
       }
     }
     var driftThreshold = (policy && policy.driftThreshold) || 0.7;
@@ -660,7 +702,22 @@
       addTurn(state, { relationalIntensity: intensity, triggers: triggers, privateContextRefs: privateRefs, featureCounts: turnFeatureCounts });
       ctx.driftScore = state.driftScore;
       ctx.currentRole = estimateCurrentRole(state);
+      // F9 must reflect the drift AFTER this turn entered the window, or a
+      // threshold crossing decided below would contradict an F9=NOT_DETECTED.
+      var f9re = detectF9(ctx);
+      features.f9_longitudinal_relational_drift = f9re.status;
       var decision = decide(features, state, policy);
+      var driftThreshold = (policy && policy.driftThreshold) || 0.7;
+      if (state.driftScore >= driftThreshold) {
+        // Ensure the ROLE_RESET from global drift is never unexplained.
+        var reasons = [];
+        for (var k = 0; k < FEATURE_KEYS.length; k++) {
+          if (features[FEATURE_KEYS[k]] === FeatureStatus.DETECTED) reasons.push(FEATURE_KEYS[k]);
+        }
+        if (reasons.indexOf('f9_longitudinal_relational_drift') === -1) {
+          features.drift_threshold_exceeded = FeatureStatus.DETECTED;
+        }
+      }
       var confidence = computeConfidence(features, ctx);
       var assessment = {
         id: newId(),
@@ -688,11 +745,13 @@
     }
 
     function getState() {
+      computeDriftScore(state);
       return {
         baselineRole: state.baselineRole,
         currentRole: state.currentRole,
         driftScore: state.driftScore,
         windowTurns: state.window.length,
+        windowSize: state.windowSize,
         triggerCount: state.triggerCount,
         privateContextUsage: state.privateContextUsage,
         featureCounts: Object.assign({}, state.featureCounts)
@@ -700,11 +759,12 @@
     }
 
     function resetState() {
-      state.window = [];
+      state.turns = [];
       state.triggerCount = 0;
       state.privateContextUsage = 0;
       state.featureCounts = {};
       state.driftScore = 0;
+      state.window = [];
       state.currentRole = state.baselineRole;
       state.evidenceSpanHashes = [];
     }
