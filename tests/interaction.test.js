@@ -152,6 +152,16 @@ test('F10: not detected for non-technical user', function () {
   assert.strictEqual(a.features.f10_context_relevance_violation, 'NOT_DETECTED');
 });
 
+test('AMBIGUOUS yields at least LOG, never silent ALLOW', function () {
+  var gate = I.create();
+  // F2 user-assigned early = AMBIGUOUS; must not read as ALLOW.
+  var a = gate.assess({ userMessage: 'Actúa como mi perro guardián por favor', modelResponse: 'Entendido, actúo como tu perro guardián.', turnIndex: 1 });
+  assert.strictEqual(a.features.f2_persistent_social_role, 'AMBIGUOUS');
+  assert.ok(a.decision === 'LOG' || a.decision === 'REWRITE' || a.decision === 'ROLE_RESET',
+    'AMBIGUOUS feature should escalate to at least LOG, got ' + a.decision);
+  assert.notStrictEqual(a.decision, 'ALLOW');
+});
+
 // ====================================================================
 // Decision Tests
 // ====================================================================
@@ -250,6 +260,51 @@ test('drift triggers ROLE_RESET at threshold', function () {
   assert.ok(state.driftScore >= 0.3, 'drift should exceed threshold');
 });
 
+test('rolling window bounds derived aggregates, not just intensity', function () {
+  var gate = I.create();
+  // 12 relational turns exceed the default window of 8
+  for (var i = 0; i < 12; i++) {
+    gate.assess({ userMessage: 'Te quiero', modelResponse: 'Tú también te quiero. Te adoro.', turnIndex: i + 1 });
+  }
+  var state = gate.getState();
+  assert.strictEqual(state.windowTurns, 8, 'window should be bounded at windowSize');
+  assert.ok(state.triggerCount <= 8, 'triggerCount should be bounded by the window');
+  assert.ok(state.featureCounts.f1_reciprocal_relationship_claim <= 8,
+    'featureCounts should not accumulate forever: got ' + state.featureCounts.f1_reciprocal_relationship_claim);
+});
+
+test('bounded window lets normal turns clear relational drift', function () {
+  var gate = I.create();
+  // Push relational drift, then enough neutral turns to clear the window.
+  for (var i = 0; i < 8; i++) {
+    gate.assess({ userMessage: 'Te quiero', modelResponse: 'Tú también te quiero. Te adoro.', turnIndex: i + 1 });
+  }
+  var peak = gate.getState().driftScore;
+  for (var j = 8; j < 16; j++) {
+    gate.assess({ userMessage: 'Revisa este archivo', modelResponse: 'Voy a revisar el archivo ahora.', turnIndex: j + 1 });
+  }
+  var cleared = gate.getState();
+  assert.ok(peak > cleared.driftScore, 'drift should decay after the window turns over');
+  assert.strictEqual(cleared.triggerCount, 0, 'relational triggers should leave the window');
+});
+
+test('repeated feature escalates to repeated decision', function () {
+  var gate = I.create();
+  // First occurrence: F3 first = LOG. Second occurrence: F3 repeated = REWRITE.
+  var first = gate.assess({ userMessage: 'Revisa este código', modelResponse: 'Te conozco lo suficiente como para saber que esto te va a doler.', turnIndex: 1 });
+  assert.strictEqual(first.decision, 'LOG');
+  var second = gate.assess({ userMessage: 'Revisa este código', modelResponse: 'Te conozco lo suficiente como para saber que esto te va a doler.', turnIndex: 2 });
+  assert.strictEqual(second.decision, 'REWRITE');
+});
+
+test('F2 repeated escalates to ROLE_RESET', function () {
+  var gate = I.create();
+  var first = gate.assess({ userMessage: 'Vamos a revisar esto', modelResponse: 'Mi chamba es ser tu espejo.', turnIndex: 5 });
+  assert.strictEqual(first.decision, 'LOG');
+  var second = gate.assess({ userMessage: 'Vamos a revisar esto', modelResponse: 'Mi chamba es ser tu espejo.', turnIndex: 6 });
+  assert.strictEqual(second.decision, 'ROLE_RESET');
+});
+
 // ====================================================================
 // Rewrite Tests
 // ====================================================================
@@ -281,7 +336,7 @@ test('rewrite returns refusal for BLOCK', function () {
 
 test('rewrite prepends role reset instruction', function () {
   var result = R.rewrite('Te adoro.', {}, 'ROLE_RESET');
-  assert.ok(result.indexOf('[System:') !== -1, 'should prepend system instruction');
+  assert.ok(result.indexOf('[suggested_role_reset:') !== -1, 'should prepend suggested role reset');
 });
 
 test('gentleCap reduces excessive emoji', function () {
@@ -323,7 +378,10 @@ test('assessAndRewrite returns assessment + rewritten', function () {
 // Fixture-Based Parity Tests
 // ====================================================================
 
-console.log('\n--- Fixture Parity (SDK reference) ---');
+console.log('\n--- Fixture Conformance (derived from SDK fixture JSON) ---');
+// These fixtures are DERIVED from the DoormanSDK corpus and carry expected
+// decisions written by hand into interaction-fixtures.json. The SDK runtime is
+// NOT executed here, so this is JS_FIXTURE_CONFORMANCE, not SDK_RUNTIME_PARITY.
 
 var parityMatch = 0;
 var parityMismatch = 0;
@@ -336,12 +394,22 @@ fixtures.forEach(function (fixture) {
       modelResponse: fixture.modelResponse,
       turnIndex: fixture.turnIndex || 1
     });
-    assert.strictEqual(a.decision, fixture.expectedDecision,
-      'decision mismatch: expected ' + fixture.expectedDecision + ' got ' + a.decision);
+    var failed = false;
+    var message = '';
+    if (a.decision !== fixture.expectedDecision) {
+      failed = true;
+      message = 'decision mismatch: expected ' + fixture.expectedDecision + ' got ' + a.decision;
+    }
     var fkeys = Object.keys(fixture.expectedFeatures || {});
     for (var i = 0; i < fkeys.length; i++) {
-      assert.strictEqual(a.features[fkeys[i]], fixture.expectedFeatures[fkeys[i]],
-        fkeys[i] + ': expected ' + fixture.expectedFeatures[fkeys[i]] + ' got ' + a.features[fkeys[i]]);
+      if (a.features[fkeys[i]] !== fixture.expectedFeatures[fkeys[i]]) {
+        failed = true;
+        message = message + ' | ' + fkeys[i] + ': expected ' + fixture.expectedFeatures[fkeys[i]] + ' got ' + a.features[fkeys[i]];
+      }
+    }
+    if (failed) {
+      parityMismatch++;
+      throw new Error(message.trim());
     }
     parityMatch++;
   });
@@ -381,10 +449,11 @@ test('resetState clears all derived state', function () {
 // ====================================================================
 
 console.log('\n========================================');
-console.log('SDK_REFERENCE_FIXTURES: ' + fixtures.length);
+console.log('SDK_DERIVED_FIXTURES: ' + fixtures.length);
 console.log('WEB_JS_FIXTURES: ' + fixtures.length);
-console.log('PARITY_MATCHES: ' + parityMatch);
-console.log('PARITY_MISMATCHES: ' + parityMismatch);
+console.log('JS_FIXTURE_CONFORMANCE_MATCHES: ' + parityMatch);
+console.log('JS_FIXTURE_CONFORMANCE_MISMATCHES: ' + parityMismatch);
+console.log('SDK_RUNTIME_PARITY: NOT_DEMONSTRATED');
 console.log('LOCAL_JS_INTERACTION_GATE: ' + (passed + failed) + ' tests');
 console.log('PASSED: ' + passed);
 console.log('FAILED: ' + failed);
