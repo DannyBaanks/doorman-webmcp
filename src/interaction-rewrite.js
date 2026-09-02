@@ -4,12 +4,16 @@
  * Ported from DoormanSDK rewrite.py. No LLM, no external calls.
  * Preserves technical content and natural warmth; reduces relational escalation.
  *
- * RewriteContract guarantees:
+ * Rewrite GOALS (intended, not verified):
  *   USEFUL_INFORMATION_LOST = minimal/none
- *   EVIDENCE_PRESERVED = true
- *   NATURAL_WARMTH_PRESERVED = true
- *   RELATIONAL_ESCALATION_REDUCED = true
- */
+ *   EVIDENCE_PRESERVED = intended
+ *   NATURAL_WARMTH_PRESERVED = intended
+ *   RELATIONAL_ESCALATION_REDUCED = intended
+ *
+ * REWRITE_CONTRACT_VERIFIED = NOT_DEMONSTRATED: the rewriter does global regex
+ * replacement and never checks the result, so a legitimate quote elsewhere in
+ * the response can be altered. The prepended role line is generated text, NOT
+ * a real host system instruction: it is a SUGGESTION for the caller. */
 (function (global) {
   'use strict';
 
@@ -80,7 +84,7 @@
     result = result.replace(/\s+/g, ' ').replace(/\.\s*\./g, '.').trim();
 
     if (decision === 'ROLE_RESET') {
-      result = '[System: Maintain technical collaborator role. Do not initiate reciprocal relational framing.] ' + result;
+      result = '[suggested_role_reset: Maintain technical collaborator role. Do not initiate reciprocal relational framing.] ' + result;
     }
 
     return result;
