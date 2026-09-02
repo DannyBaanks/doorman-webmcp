@@ -86,19 +86,18 @@
       },
       interaction_assess: {
         name: 'interaction_assess',
-        description: 'Assess a model response for relational drift. Returns decision, detected features, drift score, and optional rewrite suggestion.',
+        description: 'Assess a model response for relational drift. MUTATES derived drift state and appends a receipt, so it is neither read-only nor idempotent.',
         inputSchema: {
           type: 'object',
           properties: {
             user_message: { type: 'string', description: 'The user message that prompted the response.' },
-            model_response: { type: 'string', description: 'The model response to assess.' },
-            baseline_role: { type: 'string', description: 'The declared interaction role (default: technical_collaborator).' }
+            model_response: { type: 'string', description: 'The model response to assess.' }
           },
           additionalProperties: false,
           required: ['user_message', 'model_response']
         },
         annotations: {
-          readOnlyHint: true, destructiveHint: false, idempotentHint: true,
+          readOnlyHint: false, destructiveHint: false, idempotentHint: false,
           openWorldHint: false, untrustedContentHint: true
         }
       },
@@ -108,15 +107,6 @@
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         annotations: {
           readOnlyHint: true, destructiveHint: false, idempotentHint: true,
-          openWorldHint: false
-        }
-      },
-      interaction_reset: {
-        name: 'interaction_reset',
-        description: 'Clear all derived interaction state (drift score, feature counts, trigger count).',
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-        annotations: {
-          readOnlyHint: false, destructiveHint: false, idempotentHint: true,
           openWorldHint: false
         }
       }
@@ -138,6 +128,33 @@
       ? global.Doorman.interaction.create({ baselineRole: 'technical_collaborator' })
       : null;
     var interactionLedger = [];
+
+    // Privacy boundary for receipts: replace any raw matched span with a
+    // stable short hash so the ledger carries no verbatim personal text.
+    function hashText(text) {
+      if (typeof text !== 'string') return text;
+      var h = 2166136261;
+      for (var i = 0; i < text.length; i++) {
+        h ^= text.charCodeAt(i);
+        h = (h * 16777619) >>> 0;
+      }
+      return 'h' + h.toString(36);
+    }
+
+    function sanitizedFeatures(features) {
+      var out = {};
+      Object.keys(features).forEach(function (k) {
+        if (k === 'evidence_spans') {
+          out[k] = {};
+          Object.keys(features[k] || {}).forEach(function (f) {
+            out[k][f] = (features[k][f] || []).map(hashText);
+          });
+        } else {
+          out[k] = features[k];
+        }
+      });
+      return out;
+    }
 
     function refresh() {
       if (global.Doorman.ui && global.Doorman.ui.render) global.Doorman.ui.render();
@@ -231,7 +248,7 @@
         var receipt = {
           kind: 'interaction',
           decision: assessment.decision,
-          features: assessment.features,
+          features: sanitizedFeatures(assessment.features),
           drift_score: assessment.driftScore,
           baseline_role: assessment.baselineRole,
           current_role: assessment.currentRole,
@@ -257,13 +274,6 @@
 
       definitions.interaction_state.execute = function () {
         return textResult(interactionGate.getState());
-      };
-
-      definitions.interaction_reset.execute = function () {
-        interactionGate.resetState();
-        interactionLedger.length = 0;
-        refresh();
-        return textResult({ status: 'reset' });
       };
     }
 
@@ -293,16 +303,15 @@
       })
     ];
 
-    // Register interaction tools if gate is available
+    // Register interaction tools if gate is available. interaction_reset is NOT
+    // exposed to the agent: a subject must not be able to clear the record that
+    // is tracking it. It exists only as a human action in the UI.
     if (interactionGate) {
       registrations.push(
         doorman.registerTool(definitions.interaction_assess, function () {
           return global.Doorman.policy.allow('always_allowed');
         }),
         doorman.registerTool(definitions.interaction_state, function () {
-          return global.Doorman.policy.allow('always_allowed');
-        }),
-        doorman.registerTool(definitions.interaction_reset, function () {
           return global.Doorman.policy.allow('always_allowed');
         })
       );
