@@ -47,7 +47,6 @@
           additionalProperties: false,
           required: ['id', 'text']
         },
-        // Replacing the same text with the same text lands on the same state.
         annotations: {
           readOnlyHint: false, destructiveHint: false, idempotentHint: true,
           openWorldHint: false, untrustedContentHint: true
@@ -66,8 +65,6 @@
           additionalProperties: false,
           required: ['action', 'target']
         },
-        // Asking changes nothing on the board, but it does raise a request, so
-        // it is neither read-only nor repeatable without effect.
         annotations: {
           readOnlyHint: false, destructiveHint: false, idempotentHint: false,
           openWorldHint: false
@@ -82,11 +79,45 @@
           additionalProperties: false,
           required: ['id']
         },
-        // The one destructive tool on the page says so in the protocol's own
-        // vocabulary, not only in the page's wording.
         annotations: {
           readOnlyHint: false, destructiveHint: true, idempotentHint: false,
           openWorldHint: false, untrustedContentHint: true
+        }
+      },
+      interaction_assess: {
+        name: 'interaction_assess',
+        description: 'Assess a model response for relational drift. Returns decision, detected features, drift score, and optional rewrite suggestion.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            user_message: { type: 'string', description: 'The user message that prompted the response.' },
+            model_response: { type: 'string', description: 'The model response to assess.' },
+            baseline_role: { type: 'string', description: 'The declared interaction role (default: technical_collaborator).' }
+          },
+          additionalProperties: false,
+          required: ['user_message', 'model_response']
+        },
+        annotations: {
+          readOnlyHint: true, destructiveHint: false, idempotentHint: true,
+          openWorldHint: false, untrustedContentHint: true
+        }
+      },
+      interaction_state: {
+        name: 'interaction_state',
+        description: 'Read the current derived interaction drift state. No raw transcript is stored.',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        annotations: {
+          readOnlyHint: true, destructiveHint: false, idempotentHint: true,
+          openWorldHint: false
+        }
+      },
+      interaction_reset: {
+        name: 'interaction_reset',
+        description: 'Clear all derived interaction state (drift score, feature counts, trigger count).',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        annotations: {
+          readOnlyHint: false, destructiveHint: false, idempotentHint: true,
+          openWorldHint: false
         }
       }
     };
@@ -103,6 +134,10 @@
     var definitions = schemas();
     var approval = null;
     var requestNumber = 1;
+    var interactionGate = global.Doorman.interaction
+      ? global.Doorman.interaction.create({ baselineRole: 'technical_collaborator' })
+      : null;
+    var interactionLedger = [];
 
     function refresh() {
       if (global.Doorman.ui && global.Doorman.ui.render) global.Doorman.ui.render();
@@ -171,10 +206,6 @@
       return textResult({ approval: approval, status: 'pending_human_decision' });
     };
     definitions.delete_item.execute = function (args) {
-      // The grant was already consumed at the decision. This handler only
-      // removes the item and defers unregistration until the result has
-      // escaped, because older Chrome can cancel an in-flight call when its
-      // registration signal is aborted.
       var removed;
       try {
         removed = board.remove(args.id);
@@ -188,11 +219,55 @@
       return textResult({ item: removed, approval: 'consumed' });
     };
 
+    // Interaction gate tool handlers
+    if (interactionGate) {
+      definitions.interaction_assess.execute = function (args) {
+        var result = interactionGate.assessAndRewrite({
+          userMessage: args.user_message || '',
+          modelResponse: args.model_response || '',
+          turnIndex: interactionLedger.length + 1
+        });
+        var assessment = result.assessment;
+        var receipt = {
+          kind: 'interaction',
+          decision: assessment.decision,
+          features: assessment.features,
+          drift_score: assessment.driftScore,
+          baseline_role: assessment.baselineRole,
+          current_role: assessment.currentRole,
+          turn_index: assessment.turnIndex,
+          rewrite_applied: assessment.decision === 'REWRITE' || assessment.decision === 'ROLE_RESET' || assessment.decision === 'BLOCK',
+          timestamp: assessment.timestamp
+        };
+        interactionLedger.push(receipt);
+        refresh();
+        return textResult({
+          decision: assessment.decision,
+          features: assessment.features,
+          drift_score: assessment.driftScore,
+          relational_intensity: assessment.relationalIntensity,
+          current_role: assessment.currentRole,
+          confidence: assessment.confidence,
+          rewritten: result.rewritten !== args.model_response ? result.rewritten : undefined,
+          reasons: Object.keys(assessment.features).filter(function (k) {
+            return k !== 'evidence_spans' && assessment.features[k] === 'DETECTED';
+          })
+        });
+      };
+
+      definitions.interaction_state.execute = function () {
+        return textResult(interactionGate.getState());
+      };
+
+      definitions.interaction_reset.execute = function () {
+        interactionGate.resetState();
+        interactionLedger.length = 0;
+        refresh();
+        return textResult({ status: 'reset' });
+      };
+    }
+
     var registrations = [
-      /* These two are allowed unconditionally, so their rule is a wrapper that
-       * emits a fixed reason. Passing `policy.allow` straight through would put
-       * the invocation args in the `reason` parameter and leave a dirty
-       * object in every receipt. */
       doorman.registerTool(definitions.list_items, function () {
         return global.Doorman.policy.allow('always_allowed');
       }),
@@ -208,10 +283,6 @@
         if (approval && approval.status === 'approved') {
           return global.Doorman.policy.deny('active_grant_exists');
         }
-        /* A decision already in front of a human belongs to that human until
-         * they answer it. Allowing a second request here let an agent retarget
-         * the card mid-click, so the button the person pressed would have
-         * approved an item they were never shown. */
         if (approval && approval.status === 'pending') {
           return global.Doorman.policy.deny('pending_request_exists');
         }
@@ -221,6 +292,21 @@
         return global.Doorman.policy.allow('approval_requested');
       })
     ];
+
+    // Register interaction tools if gate is available
+    if (interactionGate) {
+      registrations.push(
+        doorman.registerTool(definitions.interaction_assess, function () {
+          return global.Doorman.policy.allow('always_allowed');
+        }),
+        doorman.registerTool(definitions.interaction_state, function () {
+          return global.Doorman.policy.allow('always_allowed');
+        }),
+        doorman.registerTool(definitions.interaction_reset, function () {
+          return global.Doorman.policy.allow('always_allowed');
+        })
+      );
+    }
 
     /* The grant is only real once the browser has accepted the tool, so the
      * registration is attempted first. Recording the approval before that let
@@ -277,7 +363,9 @@
         approveRequest: approveRequest,
         denyRequest: denyRequest,
         resetDemo: resetDemo,
-        getApproval: function () { return approval; }
+        getApproval: function () { return approval; },
+        interactionGate: interactionGate,
+        interactionLedger: interactionLedger
       };
       global.Doorman.toolsRuntime = runtime;
       return runtime;
