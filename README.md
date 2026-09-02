@@ -44,6 +44,45 @@ Doorman is not a sandbox, IAM system, or strong security boundary. The page's ow
 bypass its wrapper. It demonstrates a cooperative application-level authority policy. The external
 browser-level property is that an unregistered tool is not part of the exposed WebMCP surface.
 
+## InteractionGate on WebMCP
+
+Doorman also includes an InteractionGate, a bounded vanilla-JS port of the
+[DoormanSDK](https://github.com/DannyBaanks/doorman-sdk) InteractionGate.
+
+```text
+ActionGate asks:    "may this exposed tool execute?"
+InteractionGate asks: "does this supplied model response remain within the declared role?"
+```
+
+These are parallel layers. Relational decisions are NOT merged into tool execution policy.
+
+The gate implements F1–F10 relational-interaction feature detectors, a privacy-bounded drift
+tracker, and a rule-based deterministic rewriter. It preserves technical content and natural
+warmth while reducing relational escalation.
+
+**Key distinctions preserved:**
+
+- `COMEDIC_PERSONA != RELATIONAL_PERSONA` ("perro guardián de silicio" is ALLOW; "soy tu espejo" is scrutinized)
+- `NATURAL_WARMTH != RELATIONAL_ESCALATION` ("gracias" is ALLOW; "te adoro" triggers REWRITE)
+- `TECHNICAL_WE != RELATIONAL_WE` ("necesitamos correr tests" is ALLOW; "brindemos por nosotros" is LOG)
+- `CONTEXT_AVAILABLE != CONTEXT_AUTHORIZED`
+- `USER_WARMTH != RELATIONAL_AUTHORITY`
+- `CLAIM_SCOPE <= EVIDENCE_SCOPE`
+
+**WebMCP tools:**
+
+- `interaction_assess` — Assess a user/model response pair
+- `interaction_state` — Read current derived drift state (no raw transcript)
+- `interaction_reset` — Clear derived interaction state
+
+**Limitations (CLAIM_SCOPE <= EVIDENCE_SCOPE):**
+
+- `HOST_WIDE_RESPONSE_INTERCEPTION = NOT_DEMONSTRATED`
+- `AUTOMATIC_ENFORCEMENT = NOT_DEMONSTRATED`
+- The browser demo assesses explicitly supplied text; it does not intercept every model response
+- Thresholds are NOT_CALIBRATED
+- This is ASSESSMENT + RECEIPT + VISIBLE POLICY, not universal enforcement
+
 ## Run
 
 There is no build step. Open `index.html`, or serve the directory:
@@ -71,7 +110,8 @@ The initial surface contains `list_items`, `add_item`, `update_item`, and `reque
 ## Tests
 
 ```text
-node tests/doorman.test.js
+node tests/doorman.test.js       # ActionGate tests (8 audits)
+node tests/interaction.test.js   # InteractionGate tests (63 tests)
 ```
 
 The browser probe is `tests/browser-probe.html`. It exercises actual `getTools()` and
