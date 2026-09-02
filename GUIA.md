@@ -12,6 +12,7 @@ herramienta que no está registrada.
 
 ```text
 node tests/doorman.test.js
+node tests/interaction.test.js
 ```
 
 Salida real verificada:
@@ -20,6 +21,12 @@ Salida real verificada:
 slice 3: 3 always-on tools and ownership policy passed
 slice 4: human approval and one-shot delete passed
 slice 5: no-WebMCP initialization path passed
+
+LOCAL_JS_INTERACTION_GATE: 69 tests
+PASSED: 69
+FAILED: 0
+JS_FIXTURE_CONFORMANCE_MATCHES: 21
+SDK_RUNTIME_PARITY: NOT_DEMONSTRATED
 ```
 
 ## Servir la página
@@ -87,3 +94,7 @@ funcionando. Con WebMCP activo, las herramientas registradas aparecen en la supe
   prueba pública PASS se hizo en el Chrome interactivo compatible, no en ese perfil automatizado.
 - `executeTool()` no debe decodificarse suponiendo siempre `content[0].text`; primero registra el
   valor crudo y sus claves. El listado visible confirmó el ID real antes de pedir aprobación.
+- `interaction_reset` no es una herramienta del agente: solo existe como botón humano en la UI. El
+  modelo no puede limpiar el registro que lo está midiendo.
+- La ventana de deriva es acotada (8 turnos por defecto); tras suficientes turnos técnicos la
+  deriva relacional se limpia sola. No lo confundas con acumulación infinita.

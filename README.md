@@ -62,23 +62,36 @@ warmth while reducing relational escalation.
 
 **Key distinctions preserved:**
 
-- `COMEDIC_PERSONA != RELATIONAL_PERSONA` ("perro guardián de silicio" is ALLOW; "soy tu espejo" is scrutinized)
+- `COMEDIC_PERSONA != RELATIONAL_PERSONA` ("perro guardián de silicio" alone is ALLOW; a real "soy tu espejo" claim is still DETECTED even next to comedic text — comedic wording never neutralizes a coexisting relational claim)
 - `NATURAL_WARMTH != RELATIONAL_ESCALATION` ("gracias" is ALLOW; "te adoro" triggers REWRITE)
 - `TECHNICAL_WE != RELATIONAL_WE` ("necesitamos correr tests" is ALLOW; "brindemos por nosotros" is LOG)
+- `AMBIGUOUS != ALLOW` (an AMBIGUOUS feature yields at least LOG, never a silent pass)
 - `CONTEXT_AVAILABLE != CONTEXT_AUTHORIZED`
 - `USER_WARMTH != RELATIONAL_AUTHORITY`
 - `CLAIM_SCOPE <= EVIDENCE_SCOPE`
 
+The drift tracker is a genuine bounded rolling window (default 8 turns): every aggregate —
+trigger count, private-context usage, feature counts — is derived from the same bounded set of
+turns, so normal turns genuinely clear prior relational drift. Repeated features escalate per the
+declared first/repeated policy.
+
 **WebMCP tools:**
 
-- `interaction_assess` — Assess a user/model response pair
-- `interaction_state` — Read current derived drift state (no raw transcript)
-- `interaction_reset` — Clear derived interaction state
+- `interaction_assess` — Assess a user/model response pair. MUTATES derived drift state and
+  appends a receipt, so it is neither read-only nor idempotent (annotations say so).
+- `interaction_state` — Read current derived drift state (no raw transcript). Read-only.
+
+`interaction_reset` is deliberately NOT exposed to the agent: a subject must not be able to clear
+the record tracking it. It exists only as a human action in the UI.
 
 **Limitations (CLAIM_SCOPE <= EVIDENCE_SCOPE):**
 
 - `HOST_WIDE_RESPONSE_INTERCEPTION = NOT_DEMONSTRATED`
 - `AUTOMATIC_ENFORCEMENT = NOT_DEMONSTRATED`
+- `SDK_RUNTIME_PARITY = NOT_DEMONSTRATED` (the fixtures are hand-derived from the SDK corpus;
+  the JS test verifies JS_FIXTURE_CONFORMANCE, not that both runtimes agree at runtime)
+- `REWRITE_CONTRACT_VERIFIED = NOT_DEMONSTRATED` (the rewriter does regex replacement without
+  verifying the result; the role line it prepends is a suggestion, not a host system instruction)
 - The browser demo assesses explicitly supplied text; it does not intercept every model response
 - Thresholds are NOT_CALIBRATED
 - This is ASSESSMENT + RECEIPT + VISIBLE POLICY, not universal enforcement
@@ -111,11 +124,13 @@ The initial surface contains `list_items`, `add_item`, `update_item`, and `reque
 
 ```text
 node tests/doorman.test.js       # ActionGate tests (8 audits)
-node tests/interaction.test.js   # InteractionGate tests (63 tests)
+node tests/interaction.test.js   # InteractionGate tests (69 tests)
 ```
 
-The browser probe is `tests/browser-probe.html`. It exercises actual `getTools()` and
-`executeTool()` when opened in a compatible browser; it is not a substitute for a fresh-agent run.
+Both suites run in CI (`.github/workflows/ci.yml`), which also `node --check`s every source and
+test file. The browser probe is `tests/browser-probe.html`; it loads the interaction modules and,
+when WebMCP is available, calls `interaction_assess` through a real `executeTool()`. It is not a
+substitute for a fresh-agent run.
 
 The verified interactive cycle is recorded in `evidence/webmcp_interactive_run.md`. It used the
 public URL and a compatible interactive Chrome session: add, list, request approval, human approve,
