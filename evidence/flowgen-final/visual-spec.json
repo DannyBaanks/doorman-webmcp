@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "title": "unknown repo - 1 components",
+  "layout": "split",
+  "arena": {
+    "width": 64,
+    "height": 64
+  },
+  "theme": {
+    "background": [
+      8,
+      8,
+      14
+    ],
+    "accent_hue": 64,
+    "scale": 4
+  },
+  "entities": [
+    {
+      "id": "e0",
+      "name": "evidence",
+      "kind": "directory",
+      "actions": [
+        "TRACE",
+        "SPLIT",
+        "INC",
+        "WRITE",
+        "TURN+",
+        "HALT"
+      ]
+    }
+  ]
+}

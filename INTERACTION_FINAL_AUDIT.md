@@ -1,8 +1,8 @@
 # InteractionGate WebMCP — Final Audit (post-fix)
 
 Date: 2026-09-02
-Source of truth: `C:\Development\ISyCo Git\doorman-webmcp`
-SDK reference: `C:\Development\ISyCo Git\doorman-sdk`
+Source of truth: this repository (doorman-webmcp)
+SDK reference: sibling repository doorman-sdk
 
 This audit supersedes the earlier 2026-09-02 draft. An external review found a
 series of real defects; each is fixed and verified below (see "Fixes applied").

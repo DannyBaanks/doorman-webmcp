@@ -1,0 +1,72 @@
+{
+  "repo": "C:\\Development\\ISyCo Git\\DoormanWebMCP",
+  "output_dir": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final",
+  "provider": "deterministic",
+  "seed": 420,
+  "layout": "split",
+  "program": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\program.flow",
+  "trace": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\execution.trace.json",
+  "preview": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\preview.png",
+  "gif": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\session.gif",
+  "visual_spec": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\visual-spec.json",
+  "compile": {
+    "program": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\program.flow",
+    "size": [
+      64,
+      64
+    ],
+    "entities": 1,
+    "actions_total": 6,
+    "background": [
+      8,
+      8,
+      14
+    ]
+  },
+  "trace_metadata": {
+    "engine": "FLOW",
+    "engine_version": "flow-0.1+trace-1",
+    "program_sha256": "fe1908a8c6697f72df5ed2372576644287e8958c7e021635bc8deebc62682556",
+    "seed": 420,
+    "config": {
+      "max_ticks": 10000,
+      "dt": 1.0,
+      "damping": 0.9,
+      "field_gain": 0.1,
+      "trace_enabled": true,
+      "image_size": [
+        64,
+        64
+      ]
+    },
+    "ticks": 10,
+    "particles_spawned": 2,
+    "final_alive": 0,
+    "execution_order_rule": "SPLIT appends to particles during the tick loop; a child MAY execute in the same tick N (current VM semantics)"
+  },
+  "repo_model": {
+    "root": "C:\\Development\\ISyCo Git\\DoormanWebMCP",
+    "languages": {},
+    "components": [
+      {
+        "name": "evidence",
+        "kind": "directory",
+        "observations": [
+          {
+            "kind": "directory",
+            "detail": "top-level dir",
+            "path": "evidence",
+            "confidence": 0.5
+          }
+        ],
+        "metrics": {
+          "files": 0,
+          "bytes": 0
+        }
+      }
+    ],
+    "entrypoints": [],
+    "observations": [],
+    "imports": {}
+  }
+}
