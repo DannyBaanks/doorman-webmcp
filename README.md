@@ -110,6 +110,12 @@ For WebMCP, use ChatGPT's in-app browser or Chrome 149+ with the WebMCP origin t
 testing, enable `chrome://flags/#enable-webmcp-testing` and relaunch Chrome. Without WebMCP the
 page says so plainly and the human board remains usable.
 
+## Demo video (2:53)
+
+Public Devpost/YouTube selection: https://www.youtube.com/watch?v=3bBK1f5dAD4
+
+Rendered with the project's own [doorman.shitvid](../../tools/shitvid/build/doorman-card-check-20260830-034949/) (fulldhaired manifest preserved in `tools/shitvid/build/`).
+
 The public demo is:
 
 ```text
