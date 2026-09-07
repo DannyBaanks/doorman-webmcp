@@ -1,16 +1,16 @@
 {
-  "repo": "C:\\Development\\ISyCo Git\\DoormanWebMCP",
-  "output_dir": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final",
+  "repo": "doorman-webmcp",
+  "output_dir": "evidence/flowgen-final",
   "provider": "deterministic",
   "seed": 420,
   "layout": "split",
-  "program": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\program.flow",
-  "trace": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\execution.trace.json",
-  "preview": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\preview.png",
-  "gif": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\session.gif",
-  "visual_spec": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\visual-spec.json",
+  "program": "evidence/flowgen-final/program.flow",
+  "trace": "evidence/flowgen-final/execution.trace.json",
+  "preview": "evidence/flowgen-final/preview.png",
+  "gif": "evidence/flowgen-final/session.gif",
+  "visual_spec": "evidence/flowgen-final/visual-spec.json",
   "compile": {
-    "program": "C:\\Development\\ISyCo Git\\DoormanWebMCP\\evidence\\flowgen-final\\program.flow",
+    "program": "evidence/flowgen-final/program.flow",
     "size": [
       64,
       64
@@ -45,7 +45,7 @@
     "execution_order_rule": "SPLIT appends to particles during the tick loop; a child MAY execute in the same tick N (current VM semantics)"
   },
   "repo_model": {
-    "root": "C:\\Development\\ISyCo Git\\DoormanWebMCP",
+    "root": ".",
     "languages": {},
     "components": [
       {
